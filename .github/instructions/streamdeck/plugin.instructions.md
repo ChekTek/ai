@@ -1,0 +1,13 @@
+---
+description: 'Use when working on Stream Deck plugin source code (TypeScript actions, plugin runtime, SDK integration).'
+applyTo: '{plugin*,*plugin}/src/**'
+---
+
+# Stream Deck Plugin Instructions
+
+Rules for the plugin source code
+
+## Error Handling
+
+- Only action classes should handle errors so that we can use `showAlert` providing the user with feedback. Any caught error should be logged as `error`
+- Connecting services can throw errors to be handled by the action classes
