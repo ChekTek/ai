@@ -11,7 +11,7 @@ applyTo: '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'
 
 ## Connecting APIs
 
-- When connecting to an API or service, create a dedicated service class `*-service.ts` that encapsulates all connection logic, API calls
+- When connecting to an API or service, create a dedicated service class `*-service.ts` that encapsulates all connection logic and API calls
 
 ## Error Handling
 
