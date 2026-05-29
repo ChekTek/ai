@@ -1,6 +1,6 @@
 ---
-description: "Use when editing project-level config (package.json, tsconfig.json, rollup/vite config, etc.) for a Stream Deck plugin project."
-applyTo: "{plugin*,*plugin}/*"
+description: 'Use when editing project-level config (package.json, tsconfig.json, rollup/vite config, etc.) for a Stream Deck plugin project.'
+applyTo: '{plugin*,*plugin}/*'
 ---
 
 # Stream Deck Config Instructions
