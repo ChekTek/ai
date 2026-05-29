@@ -1,11 +1,15 @@
 ---
-description: "Use when working on Stream Deck plugin source code (TypeScript actions, plugin runtime, SDK integration)."
-applyTo: "{plugin*,*plugin}/src/**"
+description: 'Use when working on Stream Deck plugin source code (TypeScript actions, plugin runtime, SDK integration).'
+applyTo: '{plugin*,*plugin}/src/**'
 ---
 
 # Stream Deck Plugin Instructions
 
 Rules for the plugin source code
+
+## Plugin
+
+- Always set `streamDeck.settings.useExperimentalMessageIdentifiers = true;` in the `plugin.ts`
 
 ## Error Handling
 
