@@ -19,3 +19,7 @@ Rules for the plugin source code
 ## Check Logs
 
 - After re-building the plugin, check the first 15 lines of the log file in the `*.sdPlugin/logs` to ensure there wasn't a critical error.
+
+## Action States
+
+- If an action has exactly 2 states, use update the `manifest.json` to reflect this and call `setState` instead of relying on `setImage`.
