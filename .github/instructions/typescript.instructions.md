@@ -23,9 +23,13 @@ applyTo: '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'
 
 ## Conditionals
 
-- if/else statements exceeding 3 conditions should be refactored to use a switch statement
+- if/else statements exceeding 3 conditions should be refactored to use a switch statementØ
 - conditionals can only be a ternary operator if they are simple and fit on one line
 - if statements can only exclude {} if they fit on one line
+
+## Functions Calls
+
+- Do not prefix function calls with `void` even if the function returns nothing.
 
 ## Preferred Libraries
 
