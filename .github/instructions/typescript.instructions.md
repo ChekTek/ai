@@ -31,6 +31,10 @@ applyTo: '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'
 
 - Do not prefix function calls with `void` even if the function returns nothing.
 
+## Prefer Contants & Destructuring
+
+- Use `const` for variables that are not reassigned and destructure objects when possible.
+
 ## Preferred Libraries
 
 - Event Emitter: [@elgato/utils](https://www.npmjs.com/package/@elgato/utils)
