@@ -23,3 +23,7 @@ Rules for the plugin source code
 ## Action States
 
 - If an action has exactly 2 states, use update the `manifest.json` to reflect this and call `setState` instead of relying on `setImage`.
+
+## `onDidReceiveSettings` and `onDidReceiveGlobalSettings`
+
+- Settings are already stored in these events, so there is no need to call `setSettings` or `setGlobalSettings` within these events.
