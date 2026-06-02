@@ -1,10 +1,17 @@
 ---
 description: 'Use when working with TypeScript, JavaScript, TSX, JSX, frontend code, Node.js code, package scripts, and typed APIs.'
 paths:
-  - "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}"
+    - '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'
 ---
 
 # TypeScript Instructions
+
+## Config
+
+- There should be an `eslint` config at the root using the `@elgato/eslint-config` package, with `config.strict`.
+- `@elgato/prettier-config` should be a dev dependency and set in the `package.json`
+- The project should use pnpm instead of npm
+- The project should use rolldown instead of rollup.
 
 ## Types
 
