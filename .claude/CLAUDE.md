@@ -1,20 +1,21 @@
 # CLAUDE
 
-Claude Code bridge for the shared `.github` agent configuration.
+Project configuration for Claude Code. This is the canonical, Claude-native
+source of truth; the `.github` equivalents are generated from it.
 
-## Shared Instructions
+## Instructions
 
-- @../.github/instructions/general.instructions.md
-- @../.github/instructions/typescript.instructions.md
-- @../.github/instructions/rust.instructions.md
+Coding standards live in `.claude/rules/`. Claude Code loads them
+automatically — rules without a `paths` field apply to every session, and
+path-scoped rules load when you work with matching files.
 
-## Stream Deck Project Instructions
+## Skills
 
-- @../.github/instructions/streamdeck/plugin.instructions.md
-- @../.github/instructions/streamdeck/ui.instructions.md
-- @../.github/instructions/streamdeck/manifest.instructions.md
-- @../.github/instructions/streamdeck/config.instructions.md
+Reusable workflows live in `.claude/skills/<name>/SKILL.md` and load on demand
+(for example, `/save`).
 
-## Shared Skills
+## Syncing to GitHub Copilot
 
-- @../.github/skills/save/SKILL.md
+`.github/instructions/` and `.github/skills/` mirror this folder for GitHub
+Copilot. After editing either side, run the `/sync-ai` skill to regenerate the
+other.
