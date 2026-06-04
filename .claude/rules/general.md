@@ -14,4 +14,4 @@ description: 'Use when setting project-wide coding standards, AI assistant behav
 - Small amounts of duplication are acceptable if it improves readability and reduces complexity
 - Do not exceed a nesting depth of 3 levels
 - Avoid introducing new dependencies unless necessary. If a new dependency is added, it should be well-maintained, widely used, and have a permissive license
-- Never commit code to the main branch
+- Never commit code to version control
