@@ -1,6 +1,6 @@
 ---
 name: address-pr-feedback
-description: "Use when: treating the user's message as pull request feedback or a review comment, validating whether it is a real-world project issue, explaining the validity briefly, and fixing confirmed problems."
+description: "Treat the user's message as pull request feedback or a review comment, validating whether it is a real-world project issue, explaining the validity briefly, and fixing confirmed problems."
 ---
 
 # Address PR Feedback
