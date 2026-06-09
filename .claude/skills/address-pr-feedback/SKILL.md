@@ -5,7 +5,7 @@ description: "Treat the user's message as pull request feedback or a review comm
 
 # Address PR Feedback
 
-Treat the user's message as PR feedback to investigate and resolve.
+Treat the user's message as PR feedback to investigate and resolve. Don't bother telling me about your progress, just do the report back step at the end.
 
 ## Workflow
 
