@@ -28,3 +28,7 @@ Rules for the plugin source code
 ## `onDidReceiveSettings` and `onDidReceiveGlobalSettings`
 
 - Settings are already stored in these events, so there is no need to call `setSettings` or `setGlobalSettings` within these events.
+
+## Is the plugin deployed?
+
+- When modifying the UUID of an action/plugin or the structure of the settings, ask the user if the plugin is deployed to production. If so, we need to handle the transition from legacy settings to the new settings structure.
