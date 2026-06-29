@@ -15,7 +15,7 @@ paths:
 
 ## Types
 
-- Everything should have explicit types
+- If an explicit type can be inferred, do not explicitly type it. Do not allow `any` or `unknown` types unless absolutely necessary.
 
 ## Connecting APIs
 
