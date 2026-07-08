@@ -1,10 +1,11 @@
 # AI Configuration
 
 Shareable AI agent configuration — coding instructions and skills — that works
-in both **Claude Code** and the **GitHub Copilot VS Code Extension**.
+across **Claude Code**, the **GitHub Copilot VS Code Extension**, and Copilot
+surfaces that read Copilot-native user customizations.
 
-VS Code Copilot discovers `.claude/rules` and `.claude/skills` natively, so the
-same files drive both agents.
+The `.claude` folder is the source of truth. The update scripts publish it in the
+native formats each agent expects.
 
 ## Add To Repository
 
@@ -21,12 +22,25 @@ latest config instead of running the commands by hand.
 
 ## User Setup
 
-To use this config globally (for every project), symlink this repo's rules and
-skills into your user-level `~/.claude` folder. Both Claude Code and the VS Code
-Copilot extension discover these directories. The scripts below link each rule and
-skill individually, so any config you already have is left in place. They have no
-dependencies and resolve the repo path automatically, so you can run them from
-anywhere and keep this clone wherever you want it to live permanently.
+To use this config globally (for every project), run the update script for your
+platform. The scripts publish:
+
+- Claude rules and skills to `~/.claude`
+- Copilot skills to `~/.copilot/skills`
+- Copilot instruction and prompt files to your VS Code user prompts folder
+
+Rules in `.claude/rules` are converted to `*.instructions.md` files, with
+`paths` converted to Copilot's `applyTo`. Skills in `.claude/skills` are linked
+as Copilot skills and converted to `*.prompt.md` slash commands where possible.
+
+The scripts are additive: existing non-link files and non-generated prompt files
+are left untouched. Generated Copilot files include a marker and are refreshed on
+subsequent runs. They have no dependencies and resolve the repo path
+automatically, so you can run them from anywhere and keep this clone wherever you
+want it to live permanently.
+
+Set `COPILOT_USER_PROMPTS_DIR` to override the Copilot instruction/prompt output
+folder if you use a different VS Code profile or editor build.
 
 ### macOS / Linux
 
