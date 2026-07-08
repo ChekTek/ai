@@ -1,6 +1,7 @@
 ---
 name: update-ai
 description: Pull the latest shared agent config (instructions and skills) from the ChekTek/ai repo into this repo. Use when you want to update the copied .claude config to the newest version.
+disable-model-invocation: true
 ---
 
 # Update AI Config
