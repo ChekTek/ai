@@ -1,6 +1,7 @@
 ---
 name: config-strict-typescript
 description: Update a TypeScript project's tooling config to match the team standards (eslint strict, prettier, pnpm, rolldown). Use when setting up or aligning a repo's config to the preferred TypeScript setup.
+disable-model-invocation: true
 ---
 
 # Config Strict TypeScript

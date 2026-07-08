@@ -1,6 +1,7 @@
 ---
 name: save
 description: Save the current conversation to a file.
+disable-model-invocation: true
 ---
 
 # Save

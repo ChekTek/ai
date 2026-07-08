@@ -1,6 +1,7 @@
 ---
 name: add-documentation
 description: Add documentation (JSDocs, Javadoc, Docstrings, etc.) to the codebase.
+disable-model-invocation: true
 ---
 
 - Review the repo and understand what functions, properties, and types do

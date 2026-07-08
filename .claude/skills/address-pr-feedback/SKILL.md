@@ -1,6 +1,7 @@
 ---
 name: address-pr-feedback
 description: "Treat the user's message as pull request feedback or a review comment, validating whether it is a real-world project issue, explaining the validity briefly, and fixing confirmed problems."
+disable-model-invocation: true
 ---
 
 # Address PR Feedback
