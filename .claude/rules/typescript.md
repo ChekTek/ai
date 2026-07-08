@@ -47,3 +47,7 @@ paths:
 
 - Event Emitter: [@elgato/utils](https://www.npmjs.com/package/@elgato/utils)
 - Image Manipulation: [@resvg/resvg-js](https://www.npmjs.com/package/@resvg/resvg-js)
+
+## Inheritance
+
+- Unless it is a clear and obvious win, avoid using inheritance.

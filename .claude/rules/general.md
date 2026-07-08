@@ -8,8 +8,8 @@ description: 'Use when setting project-wide coding standards, AI assistant behav
 
 ## Code
 
-- Follow existing code style and patterns in the project
-- For new code, prefer readability and maintainability over cleverness or terseness
+- Follow existing code style and patterns in the project (unless words like "refactor" or "rewrite" are used)
+- Prefer simplicity, human readability, and maintainability over cleverness or terseness
 - Only use a regex if necessary. If a regex is needed, comment explicitly what it matches and why
 - Small amounts of duplication are acceptable if it improves readability and reduces complexity
 - Do not exceed a nesting depth of 3 levels
