@@ -16,6 +16,7 @@ paths:
 ## Types
 
 - If an explicit type can be inferred, do not explicitly type it. Do not allow `any` or `unknown` types unless absolutely necessary.
+- If a type is only used in a single implementation file and is not shared, keep it in that file and place it at the bottom of the file.
 
 ## Connecting APIs
 
