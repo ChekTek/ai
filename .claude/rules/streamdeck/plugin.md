@@ -62,6 +62,6 @@ public setApiKey(apiKey?: string): void {
 
 // in *.service.ts
 public async getPlayerStatus(): Promise<PlayerStatus> {
-		const apiKey = await pluginStore.apiKey;
+	const apiKey = await pluginStore.apiKey;
 ...
 ```
