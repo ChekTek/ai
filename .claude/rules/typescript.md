@@ -52,3 +52,7 @@ paths:
 ## Inheritance
 
 - Unless it is a clear and obvious win, avoid using inheritance.
+
+## Documentation
+
+- Include JSDocs for everything.

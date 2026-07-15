@@ -32,3 +32,36 @@ Rules for the plugin source code
 ## Is the plugin deployed?
 
 - When modifying the UUID of an action/plugin or the structure of the settings, ask the user if the plugin is deployed to production. If so, we need to handle the transition from legacy settings to the new settings structure.
+
+## Shared State
+
+- If a plugin needs shared state, create a `plugin-store.ts` file and use a PluginStore singleton class exported like so `export default new PluginStore();`
+
+## APIs and Third Party Services
+
+- If a plugin needs to connect to an API or third party service, create a `*-service.ts` file and export a singleton class. For example `export default new FooService();`
+
+## Actions
+
+- For functions that are only used in 1 action prefer private methods on the action class over standalone functions
+
+## `willAppear`
+
+- Sometimes the `willAppear` event is called before the plugin is fully initialized. If an action's `willAppear` event depends on something from the `pluginStore`, service, or global settings, set up a promise to be resolved when the dependency is ready. Use `WithResolvers` from `@elgato/utils`. For example:
+```ts
+// in plugin-store.ts
+private apiKeyResolvers = withResolvers<string | undefined>();
+
+public get apiKey(): Promise<string | undefined> {
+  return this.apiKeyResolvers.promise;
+}
+
+public setApiKey(apiKey?: string): void {
+  this.apiKeyResolvers.resolve(apiKey);
+}
+
+// in *.service.ts
+public async getPlayerStatus(): Promise<PlayerStatus> {
+		const apiKey = await pluginStore.apiKey;
+...
+```
