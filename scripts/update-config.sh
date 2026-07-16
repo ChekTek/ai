@@ -23,20 +23,45 @@ fi
 link_kind() {
   dest="$1"
   label="$2"
-  kind="$3"
-  mkdir -p "$dest/$kind"
-  for item in "$SRC/$kind"/*; do
+  source_kind="$3"
+  dest_kind="${4:-$source_kind}"
+  mkdir -p "$dest/$dest_kind"
+  for item in "$SRC/$source_kind"/*; do
     [ -e "$item" ] || continue # skip if the glob matched nothing
     name="$(basename "$item")"
-    target="$dest/$kind/$name"
+    target="$dest/$dest_kind/$name"
     if [ -L "$target" ]; then
       ln -sfn "$item" "$target"
-      echo "updated: $label/$kind/$name"
+      echo "updated: $label/$dest_kind/$name"
     elif [ -e "$target" ]; then
-      echo "skip existing: $label/$kind/$name"
+      echo "skip existing: $label/$dest_kind/$name"
     else
       ln -s "$item" "$target"
-      echo "linked: $label/$kind/$name"
+      echo "linked: $label/$dest_kind/$name"
+    fi
+  done
+}
+
+remove_copilot_artifacts_for_claude_only_skills() {
+  for skill_dir in "$SRC/skills-claude-only"/*; do
+    [ -d "$skill_dir" ] || continue
+    name="$(basename "$skill_dir")"
+    skill_target="$COPILOT_SKILLS_DEST/$name"
+    prompt_target="$COPILOT_PROMPTS_DEST/$name.prompt.md"
+
+    if [ -L "$skill_target" ]; then
+      link_target="$(readlink "$skill_target")"
+      case "$link_target" in
+        "$SRC"/*)
+          rm "$skill_target"
+          echo "removed: copilot/skills/$name"
+          ;;
+      esac
+    fi
+
+    if [ -f "$prompt_target" ] && grep -q "$GENERATED_MARKER" "$prompt_target"; then
+      rm "$prompt_target"
+      echo "removed: copilot prompts/$name.prompt.md"
     fi
   done
 }
@@ -157,6 +182,8 @@ generate_copilot_prompts() {
 
 link_kind "$CLAUDE_DEST" claude rules
 link_kind "$CLAUDE_DEST" claude skills
+link_kind "$CLAUDE_DEST" claude skills-claude-only skills
 link_kind "$(dirname "$COPILOT_SKILLS_DEST")" copilot skills
+remove_copilot_artifacts_for_claude_only_skills
 generate_copilot_instructions
 generate_copilot_prompts skills
