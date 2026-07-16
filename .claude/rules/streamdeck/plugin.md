@@ -1,7 +1,7 @@
 ---
 description: 'Use when working on Stream Deck plugin source code (TypeScript actions, plugin runtime, SDK integration).'
 paths:
-  - "{plugin*,*plugin}/src/**"
+    - '{plugin*,*plugin}/src/**'
 ---
 
 # Stream Deck Plugin Instructions
@@ -48,6 +48,7 @@ Rules for the plugin source code
 ## `willAppear`
 
 - Sometimes the `willAppear` event is called before the plugin is fully initialized. If an action's `willAppear` event depends on something from the `pluginStore`, service, or global settings, set up a promise to be resolved when the dependency is ready. Use `WithResolvers` from `@elgato/utils`. For example:
+
 ```ts
 // in plugin-store.ts
 private apiKeyResolvers = withResolvers<string | undefined>();
@@ -65,3 +66,7 @@ public async getPlayerStatus(): Promise<PlayerStatus> {
 	const apiKey = await pluginStore.apiKey;
 ...
 ```
+
+## Icon Style
+
+- If the repo already has icons, use the existing style for new icons. Typically `svg`, reuse portions and colors from existing icons where it makes sense. Key icons and action icons should maintain a consistent style across the plugin.
