@@ -59,3 +59,21 @@ that creating symlinks is permitted:
 
 Re-run the script anytime (for example after `git pull`) to pick up new rules and
 skills — existing links are refreshed and your own config is left untouched.
+
+## Copilot Agent Orchestration
+
+The `orchestrate-copilot` skill lets Claude act as the coordinator while GitHub
+Copilot CLI agents perform suitable repository work. It scores built-in and
+custom agents with a weighted rubric, delegates through Copilot's programmatic
+CLI, and requires independent validation before reporting completion.
+
+Claude can load the skill automatically for delegation and orchestration tasks,
+or you can invoke it explicitly:
+
+```text
+/orchestrate-copilot implement the requested change and verify it
+```
+
+The skill expects both `claude` and `copilot` to be installed and authenticated.
+Run the platform update script above after pulling changes to install it at user
+scope on a new machine.

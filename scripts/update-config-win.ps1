@@ -26,23 +26,52 @@ function Link-Kind {
     param(
         [string] $Dest,
         [string] $Label,
-        [string] $Kind
+        [string] $SourceKind,
+        [string] $DestKind = $SourceKind
     )
 
-    $destKind = Join-Path $Dest $Kind
-    New-Item -ItemType Directory -Force $destKind | Out-Null
+    $destKindPath = Join-Path $Dest $DestKind
+    New-Item -ItemType Directory -Force $destKindPath | Out-Null
 
-    Get-ChildItem (Join-Path $Src $Kind) | ForEach-Object {
-        $target = Join-Path $destKind $_.Name
+    Get-ChildItem (Join-Path $Src $SourceKind) | ForEach-Object {
+        $target = Join-Path $destKindPath $_.Name
         $existing = Get-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
 
         if ($existing -and -not $existing.LinkType) {
-            Write-Host "skip existing: $Label/$Kind/$($_.Name)"
+            Write-Host "skip existing: $Label/$DestKind/$($_.Name)"
         }
         else {
             if ($existing) { Remove-Item -LiteralPath $target -Force -Recurse }
             New-Item -ItemType SymbolicLink -Path $target -Target $_.FullName | Out-Null
-            Write-Host "linked: $Label/$Kind/$($_.Name)"
+            Write-Host "linked: $Label/$DestKind/$($_.Name)"
+        }
+    }
+}
+
+function Remove-CopilotArtifactsForClaudeOnlySkills {
+    $claudeOnlySkills = Join-Path $Src 'skills-claude-only'
+    if (-not (Test-Path -LiteralPath $claudeOnlySkills)) { return }
+
+    Get-ChildItem $claudeOnlySkills -Directory | ForEach-Object {
+        $name = $_.Name
+        $skillTarget = Join-Path $CopilotSkillsDest $name
+        $promptTarget = Join-Path $CopilotPromptsDest "$name.prompt.md"
+        $existingSkill = Get-Item -LiteralPath $skillTarget -Force -ErrorAction SilentlyContinue
+
+        if ($existingSkill -and $existingSkill.LinkType) {
+            $ownedTarget = @($existingSkill.Target) | Where-Object {
+                $_ -and $_.StartsWith($Src, [System.StringComparison]::OrdinalIgnoreCase)
+            }
+            if ($ownedTarget) {
+                Remove-Item -LiteralPath $skillTarget -Force
+                Write-Host "removed: copilot/skills/$name"
+            }
+        }
+
+        if ((Test-Path -LiteralPath $promptTarget) -and
+            (Select-String -LiteralPath $promptTarget -Pattern $GeneratedMarker -SimpleMatch -Quiet)) {
+            Remove-Item -LiteralPath $promptTarget -Force
+            Write-Host "removed: copilot prompts/$name.prompt.md"
         }
     }
 }
@@ -197,6 +226,8 @@ function Generate-CopilotPrompts {
 
 Link-Kind $ClaudeDest claude rules
 Link-Kind $ClaudeDest claude skills
+Link-Kind $ClaudeDest claude skills-claude-only skills
 Link-Kind (Split-Path -Parent $CopilotSkillsDest) copilot skills
+Remove-CopilotArtifactsForClaudeOnlySkills
 Generate-CopilotInstructions
 Generate-CopilotPrompts
