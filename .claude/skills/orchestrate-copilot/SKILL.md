@@ -31,18 +31,19 @@ Optional add-ons, any model:
 ## Workflow
 
 1. Run `git status --short` first so you can spot unrelated changes later.
-2. Pick the model that matches the task's difficulty (see above).
-3. Give it a self-contained prompt: objective, relevant files/context, and what
+2. Determine if the task can be split into smaller sub-tasks. If so, do that and orchestrate each sub-task separately.
+3. Pick the model that matches the task's difficulty (see above).
+4. Give it a self-contained prompt: objective, relevant files/context, and what
    "done" looks like. Tell it not to commit, push, or open a PR unless the user
    asked for that.
-4. Invoke it with the model's flags:
+5. Invoke it with the model's flags:
    ```
    copilot -C <repo> --model=<model-name> <model-flags> --prompt <prompt> \
      --allow-all-tools --no-ask-user --stream=off --silent
    ```
-5. Review the actual diff and run relevant tests/build yourself. Don't accept
+6. Review the actual diff and run relevant tests/build yourself. Don't accept
    the model's own claim of success as proof.
-6. If the output is wrong, incomplete, or low quality, send one focused
+7. If the output is wrong, incomplete, or low quality, send one focused
    follow-up back to the same model describing exactly what's missing. If it
    still falls short after that, do the fix yourself.
 
