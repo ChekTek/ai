@@ -26,7 +26,11 @@ demonstrable value on their own, preserving the plan's dependency order. Note
 which tickets block others. Prefer fewer, meatier vertical slices over many
 thin horizontal ones.
 
-## 3. Draft each ticket
+## 3. Ask any clarifying questions
+
+If the plan is ambiguous or missing information needed to create a ticket, ask the user for clarification.
+
+## 4. Draft each ticket
 
 For each ticket, include:
 
@@ -42,13 +46,13 @@ Do not invent requirements the plan doesn't support; carry over the plan's
 assumptions and open questions into the relevant ticket instead of resolving
 them yourself.
 
-## 4. Confirm before creating
+## 5. Confirm before creating
 
 Show the user the drafted tickets (title + one-line scope each) and confirm
 the target repo (infer from the git remote if unambiguous). Creating issues
 is visible to others, so get explicit approval before creating anything.
 
-## 5. Create the issues
+## 6. Create the issues
 
 Use `gh issue create` for each approved ticket. Always add the `needs review`
 label — create it first if it doesn't exist yet, with description "An agent
