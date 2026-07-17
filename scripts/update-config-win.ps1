@@ -33,7 +33,10 @@ function Link-Kind {
     $destKindPath = Join-Path $Dest $DestKind
     New-Item -ItemType Directory -Force $destKindPath | Out-Null
 
-    Get-ChildItem (Join-Path $Src $SourceKind) | ForEach-Object {
+    $sourceKindPath = Join-Path $Src $SourceKind
+    if (-not (Test-Path -LiteralPath $sourceKindPath -PathType Container)) { return }
+
+    Get-ChildItem -LiteralPath $sourceKindPath | ForEach-Object {
         $target = Join-Path $destKindPath $_.Name
         $existing = Get-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
 
