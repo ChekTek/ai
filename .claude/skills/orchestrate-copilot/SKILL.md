@@ -15,11 +15,11 @@ Each model has its own flag recipe — heavier tasks get more reasoning effort
 and autopilot persistence (closer to how GitHub's cloud coding agent behaves),
 lighter tasks stay fast and cheap.
 
-- **GPT-5.6 Sol** — complex tasks: hard bugs, multi-step implementation, anything needing real thinking.
+- **gpt-5.6-sol** — complex tasks: hard bugs, multi-step implementation, anything needing real thinking.
   `--effort high --mode autopilot --max-autopilot-continues 15`
-- **GPT-5.6 Terra** — everyday code tasks that aren't trivial but aren't complex either.
+- **gpt-5.6-terra** — everyday code tasks that aren't trivial but aren't complex either.
   `--effort medium --mode autopilot`
-- **GPT-5.6 Luna** — light, quick tasks: small lookups, one-line fixes, formatting.
+- **gpt-5.6-luna ** — light, quick tasks: small lookups, one-line fixes, formatting.
   `--effort low`
 
 Optional add-ons, any model:
