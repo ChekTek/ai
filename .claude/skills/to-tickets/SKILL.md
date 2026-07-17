@@ -15,7 +15,7 @@ horizontal layer like "build the service class" on its own.
 ## 1. Find the plan
 
 If a path is given, read it. Otherwise look for the most recently modified
-plan-shaped file in the repo (e.g. `*-mvp-plan.md` from `/sd-plan-mvp`, or any
+plan-shaped file in the repo (e.g. `*-mvp-plan.md` from `/sd-plan-mvp`, `*-actions-plan.md`, or any
 other `*-plan.md`), or use the plan already agreed in this conversation. Ask
 the user if none is found or more than one is a plausible match.
 
