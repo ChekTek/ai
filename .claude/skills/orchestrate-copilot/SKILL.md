@@ -19,7 +19,7 @@ lighter tasks stay fast and cheap.
   `--effort high --mode autopilot --max-autopilot-continues 15`
 - **gpt-5.6-terra** — everyday code tasks that aren't trivial but aren't complex either.
   `--effort medium --mode autopilot`
-- **gpt-5.6-luna ** — light, quick tasks: small lookups, one-line fixes, formatting.
+- **gpt-5.6-luna** — light, quick tasks: small lookups, one-line fixes, formatting.
   `--effort low`
 
 Optional add-ons, any model:
