@@ -32,7 +32,7 @@ paths:
 
 ## Conditionals
 
-- if/else statements exceeding 3 conditions should be refactored to use a switch statementØ
+- if/else statements exceeding 3 conditions should be refactored to use a switch statement
 - conditionals can only be a ternary operator if they are simple and fit on one line
 - if statements can only exclude {} if they fit on one line
 
