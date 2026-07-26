@@ -79,6 +79,46 @@ function Remove-CopilotArtifactsForClaudeOnlySkills {
     }
 }
 
+function Remove-StaleLinks {
+    param(
+        [string] $Dest,
+        [string] $Label,
+        [string] $DestKind
+    )
+
+    $destKindPath = Join-Path $Dest $DestKind
+    if (-not (Test-Path -LiteralPath $destKindPath -PathType Container)) { return }
+
+    Get-ChildItem -LiteralPath $destKindPath -Force | ForEach-Object {
+        if (-not $_.LinkType) { return }
+
+        $ownedTarget = @($_.Target) | Where-Object {
+            $_ -and $_.StartsWith($Src, [System.StringComparison]::OrdinalIgnoreCase)
+        }
+        if (-not $ownedTarget) { return }
+        if (Test-Path -LiteralPath $ownedTarget[0]) { return }
+
+        Remove-Item -LiteralPath $_.FullName -Force
+        Write-Host "removed stale: $Label/$DestKind/$($_.Name)"
+    }
+}
+
+function Remove-StaleGeneratedFiles {
+    if (-not (Test-Path -LiteralPath $CopilotPromptsDest -PathType Container)) { return }
+
+    Get-ChildItem -LiteralPath $CopilotPromptsDest -Filter '*.md' -File | ForEach-Object {
+        $match = Select-String -LiteralPath $_.FullName -Pattern "$([regex]::Escape($GeneratedMarker)) from (.+) -->" |
+            Select-Object -First 1
+        if (-not $match) { return }
+
+        $sourceRel = $match.Matches[0].Groups[1].Value
+        if (Test-Path -LiteralPath (Join-Path $RepoRoot $sourceRel)) { return }
+
+        Remove-Item -LiteralPath $_.FullName -Force
+        Write-Host "removed stale: copilot prompts/$($_.Name)"
+    }
+}
+
 function Test-GeneratedFileWritable {
     param([string] $Target)
 
@@ -232,5 +272,9 @@ Link-Kind $ClaudeDest claude skills
 Link-Kind $ClaudeDest claude skills-claude-only skills
 Link-Kind (Split-Path -Parent $CopilotSkillsDest) copilot skills
 Remove-CopilotArtifactsForClaudeOnlySkills
+Remove-StaleLinks $ClaudeDest claude rules
+Remove-StaleLinks $ClaudeDest claude skills
+Remove-StaleLinks (Split-Path -Parent $CopilotSkillsDest) copilot skills
+Remove-StaleGeneratedFiles
 Generate-CopilotInstructions
 Generate-CopilotPrompts

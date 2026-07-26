@@ -66,6 +66,38 @@ remove_copilot_artifacts_for_claude_only_skills() {
   done
 }
 
+prune_stale_links() {
+  dest="$1"
+  label="$2"
+  dest_kind="$3"
+  dir="$dest/$dest_kind"
+  [ -d "$dir" ] || return
+  for target in "$dir"/*; do
+    [ -L "$target" ] || continue
+    link="$(readlink "$target")"
+    case "$link" in
+      "$SRC"/*)
+        [ -e "$target" ] && continue
+        rm "$target"
+        echo "removed stale: $label/$dest_kind/$(basename "$target")"
+        ;;
+    esac
+  done
+}
+
+prune_stale_generated_files() {
+  [ -d "$COPILOT_PROMPTS_DEST" ] || return
+  for target in "$COPILOT_PROMPTS_DEST"/*.md; do
+    [ -f "$target" ] || continue
+    grep -q "$GENERATED_MARKER" "$target" || continue
+    source_rel="$(sed -n "s|.*$GENERATED_MARKER from \(.*\) -->.*|\1|p" "$target" | head -1)"
+    [ -n "$source_rel" ] || continue
+    [ -e "$REPO_ROOT/$source_rel" ] && continue
+    rm "$target"
+    echo "removed stale: copilot prompts/$(basename "$target")"
+  done
+}
+
 can_write_generated_file() {
   target="$1"
   [ ! -e "$target" ] || grep -q "$GENERATED_MARKER" "$target"
@@ -185,5 +217,9 @@ link_kind "$CLAUDE_DEST" claude skills
 link_kind "$CLAUDE_DEST" claude skills-claude-only skills
 link_kind "$(dirname "$COPILOT_SKILLS_DEST")" copilot skills
 remove_copilot_artifacts_for_claude_only_skills
+prune_stale_links "$CLAUDE_DEST" claude rules
+prune_stale_links "$CLAUDE_DEST" claude skills
+prune_stale_links "$(dirname "$COPILOT_SKILLS_DEST")" copilot skills
+prune_stale_generated_files
 generate_copilot_instructions
 generate_copilot_prompts skills

@@ -62,22 +62,20 @@ skills — existing links are refreshed and your own config is left untouched.
 
 ## Copilot Agent Orchestration
 
-The `orchestrate-copilot` skill lets the current agent act as the coordinator
-while GitHub Copilot CLI models perform suitable repository work. It is model
-aware: a Claude orchestrator delegates to the GPT models (Sol, Terra, Luna),
-and a GPT orchestrator delegates to the Claude models (Opus 5, Sonnet 5), so
-the worker always comes from a different model family than the reviewer. It
-matches the model tier to task difficulty, delegates through Copilot's
-programmatic CLI, and requires independent validation before reporting
-completion.
+Two skills delegate repository work to a Copilot CLI model in the *other* model
+family, so the worker's blind spots differ from the reviewer's:
 
-Agents can load the skill automatically for delegation and orchestration tasks,
-or you can invoke it explicitly:
+- `orchestrate-gpt` — use from a Claude model; dispatches Sol, Terra, or Luna.
+- `orchestrate-claude` — use from a GPT model; dispatches Opus 5 or Sonnet 5.
+
+Each picks a model tier matching task difficulty and requires you to verify the
+diff yourself before reporting completion. Agents load them automatically for
+delegation tasks, or invoke one explicitly:
 
 ```text
-/orchestrate-copilot implement the requested change and verify it
+/orchestrate-gpt implement the requested change and verify it
 ```
 
-The skill expects both `claude` and `copilot` to be installed and authenticated.
-Run the platform update script above after pulling changes to install it at user
-scope on a new machine.
+The skills expect `copilot` to be installed and authenticated. Run the platform
+update script above after pulling changes to install them at user scope on a new
+machine.
