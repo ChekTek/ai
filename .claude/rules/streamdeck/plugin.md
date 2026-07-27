@@ -70,3 +70,7 @@ public async getPlayerStatus(): Promise<PlayerStatus> {
 ## Icon Style
 
 - If the repo already has icons, use the existing style for new icons. Typically `svg`, reuse portions and colors from existing icons where it makes sense. Key icons and action icons should maintain a consistent style across the plugin. Action list icons should be white.
+
+## Native Code Required
+
+- If native code is required for functionality it should be a node.js addon (NAPI), so that we don't create a separate process from the plugin unless absolutely necessary. If possible prefer rust otherwise c++.
