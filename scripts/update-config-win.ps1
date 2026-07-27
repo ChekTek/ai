@@ -22,9 +22,10 @@ else {
     $CopilotPromptsDest = Join-Path $env:APPDATA 'Code\User\prompts'
 }
 
-# Copilot CLI does not read VS Code's prompts folder. It looks for user-level
-# instructions in ~/.copilot/copilot-instructions.md and
-# ~/.copilot/instructions/**/*.instructions.md, so rules are published there too.
+# Copilot CLI and VS Code both read ~/.copilot/instructions, so instructions are
+# published there only. Writing them to the VS Code prompts folder as well would
+# make every rule appear twice in VS Code. Prompts still go to the prompts
+# folder, since the CLI gets those from ~/.copilot/skills instead.
 if ($env:COPILOT_CLI_INSTRUCTIONS_DIR) {
     $CopilotCliInstructionsDest = $env:COPILOT_CLI_INSTRUCTIONS_DIR
 }
@@ -134,6 +135,17 @@ function Remove-StaleGeneratedFiles {
     }
 }
 
+function Remove-LegacyPromptFolderInstructions {
+    if (-not (Test-Path -LiteralPath $CopilotPromptsDest -PathType Container)) { return }
+
+    Get-ChildItem -LiteralPath $CopilotPromptsDest -Filter '*.instructions.md' -File | ForEach-Object {
+        if (-not (Select-String -LiteralPath $_.FullName -Pattern $GeneratedMarker -SimpleMatch -Quiet)) { return }
+
+        Remove-Item -LiteralPath $_.FullName -Force
+        Write-Host "removed duplicate: copilot prompts/$($_.Name)"
+    }
+}
+
 function Test-GeneratedFileWritable {
     param([string] $Target)
 
@@ -224,10 +236,8 @@ function Convert-RuleToInstruction {
         $output += $lines[$bodyStart..($lines.Count - 1)]
     }
 
-    Write-GeneratedFile (Join-Path $CopilotPromptsDest "$name.instructions.md") $output `
-        "copilot instructions/$name.instructions.md"
     Write-GeneratedFile (Join-Path $CopilotCliInstructionsDest "$name.instructions.md") $output `
-        "copilot-cli instructions/$name.instructions.md"
+        "copilot instructions/$name.instructions.md"
 }
 
 function Convert-SkillToPrompt {
@@ -293,6 +303,7 @@ Remove-StaleLinks $ClaudeDest claude rules
 Remove-StaleLinks $ClaudeDest claude skills
 Remove-StaleLinks (Split-Path -Parent $CopilotSkillsDest) copilot skills
 Remove-StaleGeneratedFiles $CopilotPromptsDest 'copilot prompts'
-Remove-StaleGeneratedFiles $CopilotCliInstructionsDest 'copilot-cli instructions'
+Remove-StaleGeneratedFiles $CopilotCliInstructionsDest 'copilot instructions'
+Remove-LegacyPromptFolderInstructions
 Generate-CopilotInstructions
 Generate-CopilotPrompts
