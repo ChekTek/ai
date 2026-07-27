@@ -33,19 +33,24 @@ Rules in `.claude/rules` are converted to `*.instructions.md` files, with
 `paths` converted to Copilot's `applyTo`. Skills in `.claude/skills` are linked
 as both Claude and Copilot skills.
 
-Everything is published to exactly one folder that Copilot CLI and VS Code both
-read, because publishing the same source twice makes it appear twice in VS Code:
-
-- Instructions go to `~/.copilot/instructions`, not VS Code's prompts folder.
-- Skills are linked into `~/.copilot/skills` and are slash-invocable from there,
-  so they are no longer also generated as `*.prompt.md` prompt files.
-
-Generated `*.instructions.md` and `*.prompt.md` files left in the prompts folder
-by earlier versions are removed on the next run. Requires VS Code 1.130 or newer.
+Nothing is editor-specific. Copilot CLI and VS Code both read `~/.copilot`
+directly, so each rule and skill is published exactly once — publishing the same
+source to two locations makes it appear twice in VS Code. Skills in
+`~/.copilot/skills` are slash-invocable in VS Code as they are, so they are not
+also generated as `*.prompt.md` prompt files. Requires VS Code 1.130 or newer.
 
 If a skill also exists as a real folder in `~/.claude/skills` or `~/.agents/skills`,
-VS Code shows it twice and the stale copy wins in Claude Code. The scripts will not
-delete those, so remove them by hand and re-run to replace them with links.
+VS Code shows it twice and the stale copy wins in Claude Code. A normal run will not
+delete those, so use `--clean` or remove them by hand and re-run.
+
+Because skills are published to both `~/.claude/skills` and `~/.copilot/skills`,
+and VS Code reads both by default, VS Code needs the Claude locations turned off
+to avoid duplicates:
+
+```jsonc
+"chat.instructionsFilesLocations": { ".claude/rules": false, "~/.claude/rules": false },
+"chat.agentSkillsLocations": { ".claude/skills": false, "~/.claude/skills": false },
+```
 
 The scripts are additive: existing non-link files and non-generated files are left
 untouched. Generated files include a marker and are refreshed on subsequent runs.
@@ -64,15 +69,12 @@ another machine.
 ```
 
 This permanently deletes **everything** in `~/.claude/rules`, `~/.claude/skills`,
-`~/.copilot/skills`, `~/.copilot/instructions` and `~/.agents/skills`, plus every
-`*.instructions.md` and `*.prompt.md` in the VS Code prompts folder — including
+`~/.copilot/skills`, `~/.copilot/instructions` and `~/.agents/skills` — including
 skills you wrote by hand or installed from elsewhere. It lists what it will remove
 and asks for confirmation first; add `--yes` (`-Yes`) to skip the prompt, which is
 required when running non-interactively.
 
-Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder, or
-`COPILOT_USER_PROMPTS_DIR` to point the legacy prompt-folder cleanup at a
-different VS Code profile.
+Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder.
 
 ### macOS / Linux
 
