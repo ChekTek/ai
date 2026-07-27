@@ -28,28 +28,33 @@ platform. The scripts publish:
 - Claude rules and skills to `~/.claude`
 - Copilot skills to `~/.copilot/skills`
 - Copilot instruction files to `~/.copilot/instructions`
-- Copilot prompt files to your VS Code user prompts folder
 
 Rules in `.claude/rules` are converted to `*.instructions.md` files, with
 `paths` converted to Copilot's `applyTo`. Skills in `.claude/skills` are linked
-as Copilot skills and converted to `*.prompt.md` slash commands where possible.
+as both Claude and Copilot skills.
 
-Instructions go to `~/.copilot/instructions` because both Copilot CLI and VS Code
-read that folder. VS Code does not read instructions from `~/.copilot/skills`, and
-Copilot CLI does not read VS Code's prompts folder, so this is the one location
-that serves both. Writing them to the prompts folder as well makes every rule
-appear twice in VS Code, so any leftover generated `*.instructions.md` files
-there are removed on the next run. Requires VS Code 1.130 or newer.
+Everything is published to exactly one folder that Copilot CLI and VS Code both
+read, because publishing the same source twice makes it appear twice in VS Code:
 
-The scripts are additive: existing non-link files and non-generated prompt files
-are left untouched. Generated Copilot files include a marker and are refreshed on
-subsequent runs. They have no dependencies and resolve the repo path
-automatically, so you can run them from anywhere and keep this clone wherever you
-want it to live permanently.
+- Instructions go to `~/.copilot/instructions`, not VS Code's prompts folder.
+- Skills are linked into `~/.copilot/skills` and are slash-invocable from there,
+  so they are no longer also generated as `*.prompt.md` prompt files.
 
-Set `COPILOT_USER_PROMPTS_DIR` to override the Copilot prompt output folder if
-you use a different VS Code profile or editor build. Set
-`COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder.
+Generated `*.instructions.md` and `*.prompt.md` files left in the prompts folder
+by earlier versions are removed on the next run. Requires VS Code 1.130 or newer.
+
+If a skill also exists as a real folder in `~/.claude/skills` or `~/.agents/skills`,
+VS Code shows it twice and the stale copy wins in Claude Code. The scripts will not
+delete those, so remove them by hand and re-run to replace them with links.
+
+The scripts are additive: existing non-link files and non-generated files are left
+untouched. Generated files include a marker and are refreshed on subsequent runs.
+They have no dependencies and resolve the repo path automatically, so you can run
+them from anywhere and keep this clone wherever you want it to live permanently.
+
+Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder, or
+`COPILOT_USER_PROMPTS_DIR` to point the legacy prompt-folder cleanup at a
+different VS Code profile.
 
 ### macOS / Linux
 
