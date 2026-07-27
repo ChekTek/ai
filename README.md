@@ -52,6 +52,24 @@ untouched. Generated files include a marker and are refreshed on subsequent runs
 They have no dependencies and resolve the repo path automatically, so you can run
 them from anywhere and keep this clone wherever you want it to live permanently.
 
+### Starting fresh
+
+Pass `--clean` (`-Clean` on Windows) to empty the managed folders before
+republishing. Use it when the folders have drifted — stale real folders shadowing
+a repo skill, leftovers from an older version of these scripts, or copies from
+another machine.
+
+```sh
+./scripts/update-config.sh --clean
+```
+
+This permanently deletes **everything** in `~/.claude/rules`, `~/.claude/skills`,
+`~/.copilot/skills`, `~/.copilot/instructions` and `~/.agents/skills`, plus every
+`*.instructions.md` and `*.prompt.md` in the VS Code prompts folder — including
+skills you wrote by hand or installed from elsewhere. It lists what it will remove
+and asks for confirmation first; add `--yes` (`-Yes`) to skip the prompt, which is
+required when running non-interactively.
+
 Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder, or
 `COPILOT_USER_PROMPTS_DIR` to point the legacy prompt-folder cleanup at a
 different VS Code profile.
