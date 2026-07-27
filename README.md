@@ -27,16 +27,19 @@ platform. The scripts publish:
 
 - Claude rules and skills to `~/.claude`
 - Copilot skills to `~/.copilot/skills`
-- Copilot instruction and prompt files to your VS Code user prompts folder
-- Copilot CLI instruction files to `~/.copilot/instructions`
+- Copilot instruction files to `~/.copilot/instructions`
+- Copilot prompt files to your VS Code user prompts folder
 
 Rules in `.claude/rules` are converted to `*.instructions.md` files, with
 `paths` converted to Copilot's `applyTo`. Skills in `.claude/skills` are linked
 as Copilot skills and converted to `*.prompt.md` slash commands where possible.
 
-Instructions are written twice because Copilot CLI does not read VS Code's
-prompts folder. The CLI only picks up user-level instructions from
-`~/.copilot/copilot-instructions.md` and `~/.copilot/instructions/**/*.instructions.md`.
+Instructions go to `~/.copilot/instructions` because both Copilot CLI and VS Code
+read that folder. VS Code does not read instructions from `~/.copilot/skills`, and
+Copilot CLI does not read VS Code's prompts folder, so this is the one location
+that serves both. Writing them to the prompts folder as well makes every rule
+appear twice in VS Code, so any leftover generated `*.instructions.md` files
+there are removed on the next run. Requires VS Code 1.130 or newer.
 
 The scripts are additive: existing non-link files and non-generated prompt files
 are left untouched. Generated Copilot files include a marker and are refreshed on
@@ -44,9 +47,9 @@ subsequent runs. They have no dependencies and resolve the repo path
 automatically, so you can run them from anywhere and keep this clone wherever you
 want it to live permanently.
 
-Set `COPILOT_USER_PROMPTS_DIR` to override the Copilot instruction/prompt output
-folder if you use a different VS Code profile or editor build. Set
-`COPILOT_CLI_INSTRUCTIONS_DIR` to override the Copilot CLI instructions folder.
+Set `COPILOT_USER_PROMPTS_DIR` to override the Copilot prompt output folder if
+you use a different VS Code profile or editor build. Set
+`COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder.
 
 ### macOS / Linux
 

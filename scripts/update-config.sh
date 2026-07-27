@@ -21,9 +21,10 @@ else
   COPILOT_PROMPTS_DEST="$HOME/.config/Code/User/prompts"
 fi
 
-# Copilot CLI does not read VS Code's prompts folder. It looks for user-level
-# instructions in ~/.copilot/copilot-instructions.md and
-# ~/.copilot/instructions/**/*.instructions.md, so rules are published there too.
+# Copilot CLI and VS Code both read ~/.copilot/instructions, so instructions are
+# published there only. Writing them to the VS Code prompts folder as well would
+# make every rule appear twice in VS Code. Prompts still go to the prompts
+# folder, since the CLI gets those from ~/.copilot/skills instead.
 COPILOT_CLI_INSTRUCTIONS_DEST="${COPILOT_CLI_INSTRUCTIONS_DIR:-$HOME/.copilot/instructions}"
 
 link_kind() {
@@ -106,6 +107,18 @@ prune_stale_generated_files() {
   done
 }
 
+# Earlier versions generated instructions into the VS Code prompts folder. VS Code
+# now reads ~/.copilot/instructions natively, so those copies are duplicates.
+prune_legacy_prompt_folder_instructions() {
+  [ -d "$COPILOT_PROMPTS_DEST" ] || return 0
+  for target in "$COPILOT_PROMPTS_DEST"/*.instructions.md; do
+    [ -f "$target" ] || continue
+    grep -q "$GENERATED_MARKER" "$target" || continue
+    rm "$target"
+    echo "removed duplicate: copilot prompts/$(basename "$target")"
+  done
+}
+
 can_write_generated_file() {
   target="$1"
   [ ! -e "$target" ] || grep -q "$GENERATED_MARKER" "$target"
@@ -173,10 +186,8 @@ generate_instruction() {
     { print }
   ' "$source" > "$tmp"
 
-  install_generated_file "$tmp" "$COPILOT_PROMPTS_DEST/$name.instructions.md" \
-    "copilot instructions/$name.instructions.md"
   install_generated_file "$tmp" "$COPILOT_CLI_INSTRUCTIONS_DEST/$name.instructions.md" \
-    "copilot-cli instructions/$name.instructions.md"
+    "copilot instructions/$name.instructions.md"
   rm -f "$tmp"
 }
 
@@ -241,6 +252,7 @@ prune_stale_links "$CLAUDE_DEST" claude rules
 prune_stale_links "$CLAUDE_DEST" claude skills
 prune_stale_links "$(dirname "$COPILOT_SKILLS_DEST")" copilot skills
 prune_stale_generated_files "$COPILOT_PROMPTS_DEST" "copilot prompts"
-prune_stale_generated_files "$COPILOT_CLI_INSTRUCTIONS_DEST" "copilot-cli instructions"
+prune_stale_generated_files "$COPILOT_CLI_INSTRUCTIONS_DEST" "copilot instructions"
+prune_legacy_prompt_folder_instructions
 generate_copilot_instructions
 generate_copilot_prompts skills
