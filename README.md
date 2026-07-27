@@ -28,10 +28,15 @@ platform. The scripts publish:
 - Claude rules and skills to `~/.claude`
 - Copilot skills to `~/.copilot/skills`
 - Copilot instruction and prompt files to your VS Code user prompts folder
+- Copilot CLI instruction files to `~/.copilot/instructions`
 
 Rules in `.claude/rules` are converted to `*.instructions.md` files, with
 `paths` converted to Copilot's `applyTo`. Skills in `.claude/skills` are linked
 as Copilot skills and converted to `*.prompt.md` slash commands where possible.
+
+Instructions are written twice because Copilot CLI does not read VS Code's
+prompts folder. The CLI only picks up user-level instructions from
+`~/.copilot/copilot-instructions.md` and `~/.copilot/instructions/**/*.instructions.md`.
 
 The scripts are additive: existing non-link files and non-generated prompt files
 are left untouched. Generated Copilot files include a marker and are refreshed on
@@ -40,7 +45,8 @@ automatically, so you can run them from anywhere and keep this clone wherever yo
 want it to live permanently.
 
 Set `COPILOT_USER_PROMPTS_DIR` to override the Copilot instruction/prompt output
-folder if you use a different VS Code profile or editor build.
+folder if you use a different VS Code profile or editor build. Set
+`COPILOT_CLI_INSTRUCTIONS_DIR` to override the Copilot CLI instructions folder.
 
 ### macOS / Linux
 

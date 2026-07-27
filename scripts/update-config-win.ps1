@@ -22,6 +22,16 @@ else {
     $CopilotPromptsDest = Join-Path $env:APPDATA 'Code\User\prompts'
 }
 
+# Copilot CLI does not read VS Code's prompts folder. It looks for user-level
+# instructions in ~/.copilot/copilot-instructions.md and
+# ~/.copilot/instructions/**/*.instructions.md, so rules are published there too.
+if ($env:COPILOT_CLI_INSTRUCTIONS_DIR) {
+    $CopilotCliInstructionsDest = $env:COPILOT_CLI_INSTRUCTIONS_DIR
+}
+else {
+    $CopilotCliInstructionsDest = Join-Path $HOME '.copilot\instructions'
+}
+
 function Link-Kind {
     param(
         [string] $Dest,
@@ -104,9 +114,14 @@ function Remove-StaleLinks {
 }
 
 function Remove-StaleGeneratedFiles {
-    if (-not (Test-Path -LiteralPath $CopilotPromptsDest -PathType Container)) { return }
+    param(
+        [string] $Dir,
+        [string] $Label
+    )
 
-    Get-ChildItem -LiteralPath $CopilotPromptsDest -Filter '*.md' -File | ForEach-Object {
+    if (-not (Test-Path -LiteralPath $Dir -PathType Container)) { return }
+
+    Get-ChildItem -LiteralPath $Dir -Filter '*.md' -File | ForEach-Object {
         $match = Select-String -LiteralPath $_.FullName -Pattern "$([regex]::Escape($GeneratedMarker)) from (.+) -->" |
             Select-Object -First 1
         if (-not $match) { return }
@@ -115,7 +130,7 @@ function Remove-StaleGeneratedFiles {
         if (Test-Path -LiteralPath (Join-Path $RepoRoot $sourceRel)) { return }
 
         Remove-Item -LiteralPath $_.FullName -Force
-        Write-Host "removed stale: copilot prompts/$($_.Name)"
+        Write-Host "removed stale: $Label/$($_.Name)"
     }
 }
 
@@ -156,7 +171,6 @@ function Convert-RuleToInstruction {
         $relative = $Rule.Name
     }
     $name = [System.IO.Path]::ChangeExtension($relative, $null).Replace('\', '-').Replace('/', '-')
-    $target = Join-Path $CopilotPromptsDest "$name.instructions.md"
     $lines = Get-Content -LiteralPath $Rule.FullName
     $descriptions = @()
     $paths = @()
@@ -210,7 +224,10 @@ function Convert-RuleToInstruction {
         $output += $lines[$bodyStart..($lines.Count - 1)]
     }
 
-    Write-GeneratedFile $target $output "copilot instructions/$name.instructions.md"
+    Write-GeneratedFile (Join-Path $CopilotPromptsDest "$name.instructions.md") $output `
+        "copilot instructions/$name.instructions.md"
+    Write-GeneratedFile (Join-Path $CopilotCliInstructionsDest "$name.instructions.md") $output `
+        "copilot-cli instructions/$name.instructions.md"
 }
 
 function Convert-SkillToPrompt {
@@ -275,6 +292,7 @@ Remove-CopilotArtifactsForClaudeOnlySkills
 Remove-StaleLinks $ClaudeDest claude rules
 Remove-StaleLinks $ClaudeDest claude skills
 Remove-StaleLinks (Split-Path -Parent $CopilotSkillsDest) copilot skills
-Remove-StaleGeneratedFiles
+Remove-StaleGeneratedFiles $CopilotPromptsDest 'copilot prompts'
+Remove-StaleGeneratedFiles $CopilotCliInstructionsDest 'copilot-cli instructions'
 Generate-CopilotInstructions
 Generate-CopilotPrompts
