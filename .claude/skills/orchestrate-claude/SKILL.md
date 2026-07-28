@@ -37,7 +37,7 @@ Add-ons: `--context long_context` (large repo/diff), `--enable-all-github-mcp-to
    copilot -C <repo> --model=<model> <model-flags> --prompt <prompt> \
      --allow-all-tools --no-ask-user --stream=off --silent
    ```
-7. Review the diff and run tests/build yourself — its claim of success isn't proof.
+7. Review the diff and run tests/build yourself — its claim of success isn't proof **DO NOT DELEGATE THE REVIEW**.
 8. If it fell short, send one focused follow-up to the same model. If that fails,
    fix it yourself.
 
