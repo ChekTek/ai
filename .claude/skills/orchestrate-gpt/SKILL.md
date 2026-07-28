@@ -2,6 +2,7 @@
 name: orchestrate-gpt
 description: "Delegate coding work to GPT models (Sol, Terra, Luna) through the Copilot CLI. Use when you are a Claude model and want a cross-family worker instead of doing the work yourself."
 argument-hint: "[task or goal]"
+disable-model-invocation: true
 ---
 
 # Orchestrate GPT
