@@ -74,3 +74,9 @@ public async getPlayerStatus(): Promise<PlayerStatus> {
 ## Native Code Required
 
 - If native code is required for functionality it should be a node.js addon (NAPI), so that we don't create a separate process from the plugin unless absolutely necessary. If possible prefer rust otherwise c++.
+
+## Settings
+
+- `setSettings` does not need to be called inside of `onDidReceiveSettings` because the settings are already persisted, so this code is redundant.
+- there is no need to cache settings because the sdk does this automatically
+- do not use `propertyInspectorDidAppear`, instead use a request and response via `onSendToPlugin`
