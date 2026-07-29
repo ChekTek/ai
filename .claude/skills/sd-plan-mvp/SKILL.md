@@ -105,11 +105,13 @@ Apply these rules even when the current directory is not a Stream Deck plugin:
 - Set `streamDeck.settings.useExperimentalMessageIdentifiers = true` in
   `plugin.ts`.
 - Put all integration and connection logic in a dedicated `*-service.ts`
-  singleton. Service methods may throw; action classes catch errors, log them
+  singleton, exported as `export default new FooService();` and imported
+  directly. Service methods may throw; action classes catch errors, log them
   as errors, and call `showAlert` for user feedback.
-- If actions share state, plan a `plugin-store.ts` singleton. If `willAppear`
-  can run before required service, store, or global settings initialization,
-  coordinate readiness with `withResolvers` from `@elgato/utils`.
+- Only if actions share state, plan a `plugin-store.ts` singleton, exported
+  as `export default new PluginStore();` and imported directly.
+- If `willAppear` can run before an async dependency is ready, coordinate
+  readiness with `withResolvers` from `@elgato/utils`.
 - Keep logic used by only one action as private methods on that action class.
 - For actions with exactly two visual states, define both states in
   `manifest.json` and use `setState` rather than switching images manually.

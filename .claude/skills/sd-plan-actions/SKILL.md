@@ -20,8 +20,9 @@ existing integration and decisions already made.
 Locate the plugin (current directory or a given path) and read:
 
 - `manifest.json` for existing actions, UUIDs, and states.
-- The service/store layer (`*-service.ts`, `plugin-store.ts`) for what
-  integration capabilities, authentication, and shared state already exist.
+- Any `*-service.ts` for existing integration capabilities and
+  authentication.
+- Any `plugin-store.ts` for existing shared state.
 - Existing actions for established conventions: property inspector patterns,
   icon style, error handling, and settings shape.
 
@@ -35,7 +36,7 @@ unverified behavior as an assumption or open question.
 ## 2. Propose and approve actions
 
 Derive ideas from capabilities the integration actually supports — reusing
-the existing service/store where possible — favoring ones that are easy to
+the existing services where possible — favoring ones that are easy to
 implement but meaningfully useful in a repeated workflow.
 
 Consider all applicable interaction patterns:
@@ -51,7 +52,7 @@ Consider all applicable interaction patterns:
 Present the strongest candidates first, in small rounds. For each, include:
 name, user problem/interaction, input type, visual feedback, the documented
 capability enabling it, why it's high-value/low-effort, and any limitation
-or uncertainty — including whether it needs new service/store methods.
+or uncertainty — including whether it needs new service methods.
 
 Ask the user to approve, reject, or revise each candidate — track explicit
 approval, never infer it from silence. Keep proposing until at least 3 are
@@ -67,7 +68,7 @@ decisions first, then action-specific ones. Cover what applies:
 - Exact key, long-press, dial rotation/press, and touch behavior.
 - Read/write operations, parameters, refresh cadence, subscriptions, caching,
   rate limits, retries, and stale-data behavior — reusing existing
-  service/store methods where they already cover this, extending them only
+  service methods where they already cover this, extending them only
   where needed.
 - Whether new authentication, discovery, or global settings are needed, or
   whether existing connection setup already covers it.
@@ -104,11 +105,13 @@ overriding it:
 - Set `streamDeck.settings.useExperimentalMessageIdentifiers = true` in
   `plugin.ts`.
 - Put all integration and connection logic in a dedicated `*-service.ts`
-  singleton. Service methods may throw; action classes catch errors, log them
+  singleton, exported as `export default new FooService();` and imported
+  directly. Service methods may throw; action classes catch errors, log them
   as errors, and call `showAlert` for user feedback.
-- If actions share state, plan a `plugin-store.ts` singleton. If `willAppear`
-  can run before required service, store, or global settings initialization,
-  coordinate readiness with `withResolvers` from `@elgato/utils`.
+- Only if actions share state, plan a `plugin-store.ts` singleton, exported
+  as `export default new PluginStore();` and imported directly.
+- If `willAppear` can run before an async dependency is ready, coordinate
+  readiness with `withResolvers` from `@elgato/utils`.
 - Keep logic used by only one action as private methods on that action class.
 - For actions with exactly two visual states, define both states in
   `manifest.json` and use `setState` rather than switching images manually.
@@ -154,7 +157,8 @@ The plan must be implementation-ready and contain:
 #### Edge Cases and Errors
 #### Acceptance Criteria
 ## Architecture Changes
-### Service and Store Extensions
+### Service Extensions
+### Shared State
 ### Settings and Data Model
 ### Manifest Additions
 ## Implementation Phases
