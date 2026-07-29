@@ -35,11 +35,11 @@ Rules for the plugin source code
 
 ## Shared State
 
-- If a plugin needs shared state, create a `plugin-store.ts` file and use a PluginStore singleton class exported like so `export default new PluginStore();`
+- Only if a plugin needs shared state, create a `plugin-store.ts` file with a `PluginStore` class exported as `export default new PluginStore();`. Import and use it directly; never pass it into an action class.
 
 ## APIs and Third Party Services
 
-- If a plugin needs to connect to an API or third party service, create a `*-service.ts` file and export a singleton class. For example `export default new FooService();`
+- If a plugin needs to connect to an API or third party service, create a `*-service.ts` file with a class exported as `export default new FooService();`. Import and use it directly; never pass it into an action class.
 
 ## Actions
 
@@ -47,10 +47,9 @@ Rules for the plugin source code
 
 ## `willAppear`
 
-- If there are async startup tasks the `willAppear` event is sometimes called before these async tasks are ready. If and only if an action's `willAppear` event depends on something from the `pluginStore`, async service call, or global settings, set up a promise to be resolved when the dependency is ready. Use `WithResolvers` from `@elgato/utils`. For example:
+- If there are async startup tasks the `willAppear` event is sometimes called before these async tasks are ready. If and only if an action's `willAppear` event depends on an async value, set up a promise to be resolved when the dependency is ready. Use `withResolvers` from `@elgato/utils`. For example:
 
 ```ts
-// in plugin-store.ts
 private apiKeyResolvers = withResolvers<string | undefined>();
 
 public get apiKey(): Promise<string | undefined> {
@@ -60,11 +59,6 @@ public get apiKey(): Promise<string | undefined> {
 public setApiKey(apiKey?: string): void {
   this.apiKeyResolvers.resolve(apiKey);
 }
-
-// in *.service.ts
-public async getPlayerStatus(): Promise<PlayerStatus> {
-	const apiKey = await pluginStore.apiKey;
-...
 ```
 
 ## Icon Style

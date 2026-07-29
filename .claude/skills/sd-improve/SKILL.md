@@ -42,8 +42,10 @@ and a one-line fix.
   manual `setImage` toggling.
 - `onDidReceiveSettings`/`onDidReceiveGlobalSettings` never call
   `setSettings`/`setGlobalSettings` back.
-- Shared state lives in a `plugin-store.ts` singleton; API/service logic
-  lives in a dedicated `*-service.ts` singleton.
+- API and integration logic lives in a `*-service.ts` singleton, imported
+  and used directly rather than passed into actions.
+- Shared state, if the plugin needs any, lives in a `plugin-store.ts`
+  singleton, imported and used directly rather than passed into actions.
 - Helpers used by only one action are private methods on that action class,
   not standalone functions.
 - `willAppear` handlers that depend on store/service/global-settings
