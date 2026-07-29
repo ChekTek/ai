@@ -15,6 +15,7 @@ description: 'Use when setting project-wide coding standards, AI assistant behav
 - Do not exceed a nesting depth of 3 levels
 - Avoid introducing new dependencies unless necessary. If a new dependency is added, it should be well-maintained, widely used, and have a permissive license
 - Don't write unit tests unless explicitly requested.
+- Don't assume docs are correct. The code should be the source of truth. If there are docs, README, comments, etc. that do not match the code, update them.
 
 ## Github Issues & Requirements (AKA "Tickets")
 
