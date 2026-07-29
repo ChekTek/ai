@@ -47,7 +47,7 @@ Rules for the plugin source code
 
 ## `willAppear`
 
-- Sometimes the `willAppear` event is called before the plugin is fully initialized. If an action's `willAppear` event depends on something from the `pluginStore`, service, or global settings, set up a promise to be resolved when the dependency is ready. Use `WithResolvers` from `@elgato/utils`. For example:
+- If there are async startup tasks the `willAppear` event is sometimes called before these async tasks are ready. If and only if an action's `willAppear` event depends on something from the `pluginStore`, async service call, or global settings, set up a promise to be resolved when the dependency is ready. Use `WithResolvers` from `@elgato/utils`. For example:
 
 ```ts
 // in plugin-store.ts
