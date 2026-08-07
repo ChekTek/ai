@@ -22,6 +22,7 @@ Treat the user's message as PR feedback to investigate and resolve. Don't bother
     - If invalid, explain why the scenario cannot occur or is already handled, then stop without unrelated code changes.
 
 3. **Fix confirmed problems**
+    - Keep the fix local — do not push to the PR until the user has reviewed the change and approved pushing.
 
 4. **Report back**
     - Lead with whether the feedback was valid or not.
