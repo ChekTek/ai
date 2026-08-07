@@ -64,9 +64,13 @@ approval before writing anything.
 Write the approved body to a temp file and apply it with
 `gh issue edit <ref> --body-file <file>` (add `--title` if it changed).
 
-The `needs review` label must still be on the issue afterward: editing the
-body doesn't touch labels, but if it's missing add it — creating the label
-first if it doesn't exist, with description "An agent created this ticket and
-requires manual review" and color `#d93f0b`.
+Then fix the labels: remove `needs refinement` if present, and make sure
+`needs review` is still on the issue — if it's missing add it, creating the
+label first if it doesn't exist, with description "An agent created this
+ticket and requires manual review" and color `#d93f0b`. Both in one call:
+
+```sh
+gh issue edit <ref> --remove-label "needs refinement" --add-label "needs review"
+```
 
 Report the issue URL and a one-line summary of what changed.
