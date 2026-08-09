@@ -1,80 +1,73 @@
 # AI Configuration
 
-Shareable AI agent configuration — coding instructions and skills — that works
-across **Claude Code**, the **GitHub Copilot VS Code Extension**, and Copilot
-surfaces that read Copilot-native user customizations.
+User-level coding instructions and skills shared across **Claude Code**,
+**GitHub Copilot**, **Pi**, and **OpenAI Codex**.
 
-The `.claude` folder is the source of truth. The update scripts publish it in the
-native formats each agent expects.
+The root `rules/` and `skills/` folders are the source of truth. The update
+scripts validate and publish them in the native user/global format each harness
+expects.
 
-## Add To Repository
+## Source Layout
 
-```bash
-# One-time setup: add the remote
-git remote add config https://github.com/ChekTek/ai.git
-
-# Pull the config folder (run this anytime you want updates).
-git fetch config main && git checkout config/main -- .claude
+```text
+rules/
+├── general.md
+├── typescript.md
+└── streamdeck/
+    └── ...
+skills/
+└── refine-ticket/
+    └── SKILL.md
 ```
 
-After the first pull, you can just invoke `/update-ai` in your agent to fetch the
-latest config instead of running the commands by hand.
+Keep source files out of native folders such as `.claude` and `.agents`. Native
+folders may be discovered directly, which would bypass target filtering.
+
+## Targeting Harnesses
+
+A skill or rule can restrict where it is published with `metadata.targets`:
+
+```yaml
+---
+name: example-skill
+description: Explain what the skill does and when to use it.
+metadata:
+  targets: "claude,copilot,pi,codex"
+---
+```
+
+Use the same metadata in rule frontmatter:
+
+```yaml
+---
+description: Use when working with TypeScript.
+paths:
+  - "**/*.ts"
+metadata:
+  targets: "claude,copilot,pi"
+---
+```
+
+Supported targets are exactly:
+
+- `claude` — Claude Code
+- `copilot` — GitHub Copilot
+- `pi` — Pi, regardless of the model Pi launches
+- `codex` — OpenAI Codex
+
+If `metadata.targets` is absent, the file is published to all four harnesses.
+Targets must be a quoted, comma-separated scalar. Empty, duplicate, malformed,
+or unknown targets—including `gpt`—cause the script to fail before publishing
+anything.
+
+Targeting is based on the harness, not the model family. For example, a GPT
+model launched by Pi still uses the `pi` target.
 
 ## User Setup
 
-To use this config globally (for every project), run the update script for your
-platform. The scripts publish:
-
-- Claude rules and skills to `~/.claude`
-- Copilot skills to `~/.copilot/skills`
-- Copilot instruction files to `~/.copilot/instructions`
-
-Rules in `.claude/rules` are converted to `*.instructions.md` files, with
-`paths` converted to Copilot's `applyTo`. Skills in `.claude/skills` are linked
-as both Claude and Copilot skills.
-
-Nothing is editor-specific. Copilot CLI and VS Code both read `~/.copilot`
-directly, so each rule and skill is published exactly once — publishing the same
-source to two locations makes it appear twice in VS Code. Skills in
-`~/.copilot/skills` are slash-invocable in VS Code as they are, so they are not
-also generated as `*.prompt.md` prompt files. Requires VS Code 1.130 or newer.
-
-If a skill also exists as a real folder in `~/.claude/skills` or `~/.agents/skills`,
-VS Code shows it twice and the stale copy wins in Claude Code. A normal run will not
-delete those, so use `--clean` or remove them by hand and re-run.
-
-Because skills are published to both `~/.claude/skills` and `~/.copilot/skills`,
-and VS Code reads both by default, VS Code needs the Claude locations turned off
-to avoid duplicates:
-
-```jsonc
-"chat.instructionsFilesLocations": { ".claude/rules": false, "~/.claude/rules": false },
-"chat.agentSkillsLocations": { ".claude/skills": false, "~/.claude/skills": false },
-```
-
-The scripts are additive: existing non-link files and non-generated files are left
-untouched. Generated files include a marker and are refreshed on subsequent runs.
-They have no dependencies and resolve the repo path automatically, so you can run
-them from anywhere and keep this clone wherever you want it to live permanently.
-
-### Starting fresh
-
-Pass `--clean` (`-Clean` on Windows) to empty the managed folders before
-republishing. Use it when the folders have drifted — stale real folders shadowing
-a repo skill, leftovers from an older version of these scripts, or copies from
-another machine.
-
-```sh
-./scripts/update-config.sh --clean
-```
-
-This permanently deletes **everything** in `~/.claude/rules`, `~/.claude/skills`,
-`~/.copilot/skills`, `~/.copilot/instructions` and `~/.agents/skills` — including
-skills you wrote by hand or installed from elsewhere. It lists what it will remove
-and asks for confirmation first; add `--yes` (`-Yes`) to skip the prompt, which is
-required when running non-interactively.
-
-Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder.
+Run the update script for your platform after cloning or pulling this repo.
+The scripts resolve the repository path automatically, so they can be invoked
+from anywhere.
 
 ### macOS / Linux
 
@@ -82,34 +75,94 @@ Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override the instructions folder.
 ./scripts/update-config.sh
 ```
 
-### Windows (PowerShell)
+### Windows
 
-Run from an elevated PowerShell (Administrator) or with Developer Mode enabled so
-that creating symlinks is permitted:
+Run from an elevated PowerShell or enable Developer Mode so symbolic links can
+be created:
 
 ```powershell
 .\scripts\update-config-win.ps1
 ```
 
-Re-run the script anytime (for example after `git pull`) to pick up new rules and
-skills — existing links are refreshed and your own config is left untouched.
+Re-run the script after changing targets, adding files, or pulling updates.
+Links owned by this repo and generated files are refreshed; unrelated files are
+left untouched.
+
+## Published Locations
+
+| Harness | Skills | Rules |
+|---|---|---|
+| Claude Code | `~/.claude/skills` | `~/.claude/rules` |
+| GitHub Copilot | `~/.copilot/skills` | `~/.copilot/instructions/*.instructions.md` |
+| Pi | `~/.pi/agent/skills` | `~/.pi/agent/AGENTS.md` |
+| OpenAI Codex | `$CODEX_HOME/skills`, or `~/.codex/skills` | `$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` |
+
+Skills are linked directly to their canonical source directory. Codex skills
+use its private `$CODEX_HOME/skills` location rather than the shared
+`~/.agents/skills`, because Pi also discovers the shared location and would see
+Codex-only skills. Claude rules are also linked directly. Copilot rules are
+generated with Claude's `paths` converted to Copilot's `applyTo`.
+
+Pi and Codex do not use Claude's conditional rule-file format. Their targeted
+rules are combined into a generated global `AGENTS.md`. Rules without `paths`
+always apply; rules with `paths` retain those patterns and are labeled as
+conditional instructions.
+
+The scripts will not overwrite an unmanaged Pi or Codex `AGENTS.md`, because
+silently doing so would destroy user instructions. Move those instructions into
+this repo's `rules/` folder or remove the file before running the script.
+
+Copilot CLI and VS Code both read `~/.copilot` directly, so Copilot content is
+published only once. VS Code also discovers Claude locations by default, which
+can display the same shared skill twice. Disable the Claude locations in VS
+Code when using this setup:
+
+```jsonc
+"chat.instructionsFilesLocations": {
+  ".claude/rules": false,
+  "~/.claude/rules": false
+},
+"chat.agentSkillsLocations": {
+  ".claude/skills": false,
+  "~/.claude/skills": false
+}
+```
+
+Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override Copilot's instruction folder.
+Set `CODEX_HOME` to override the Codex configuration folder.
+
+## Starting Fresh
+
+Pass `--clean` (`-Clean` on Windows) to empty the managed publishing folders
+before republishing:
+
+```bash
+./scripts/update-config.sh --clean
+```
+
+This permanently deletes everything in these folders, including configuration
+not created by this repo:
+
+- `~/.claude/rules`
+- `~/.claude/skills`
+- `~/.copilot/skills`
+- `~/.copilot/instructions`
+- `~/.pi/agent/skills`
+- `$CODEX_HOME/skills`, or `~/.codex/skills`
+
+Codex's managed `$CODEX_HOME/skills/.system` directory is preserved. Generated
+Pi and Codex `AGENTS.md` files are removed only when they contain this repo's
+generated marker. The script lists removals and asks for confirmation.
+Pass `--yes` (`-Yes` on Windows) to skip the prompt; this is required for a
+non-interactive clean.
 
 ## Copilot Agent Orchestration
 
-Two skills delegate repository work to a Copilot CLI model in the *other* model
-family, so the worker's blind spots differ from the reviewer's:
+Two skills delegate repository work to a Copilot CLI model in the other model
+family so the worker's blind spots differ from the reviewer's:
 
 - `orchestrate-gpt` — use from a Claude model; dispatches Sol, Terra, or Luna.
 - `orchestrate-claude` — use from a GPT model; dispatches Opus 5 or Sonnet 5.
 
-Each picks a model tier matching task difficulty and requires you to verify the
-diff yourself before reporting completion. Agents load them automatically for
-delegation tasks, or invoke one explicitly:
-
-```text
-/orchestrate-gpt implement the requested change and verify it
-```
-
-The skills expect `copilot` to be installed and authenticated. Run the platform
-update script above after pulling changes to install them at user scope on a new
-machine.
+Each requires the calling agent to verify the resulting diff. The skills expect
+`copilot` to be installed and authenticated.
