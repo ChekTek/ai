@@ -17,7 +17,8 @@ COPILOT_SKILLS_DEST="$HOME/.copilot/skills"
 COPILOT_INSTRUCTIONS_DEST="${COPILOT_CLI_INSTRUCTIONS_DIR:-$HOME/.copilot/instructions}"
 PI_SKILLS_DEST="$HOME/.pi/agent/skills"
 PI_EXTENSIONS_DEST="$HOME/.pi/agent/extensions"
-PI_RULES_DEST="$HOME/.pi/agent/AGENTS.md"
+PI_RULES_DEST="$HOME/.pi/agent/rules"
+PI_LEGACY_RULES_DEST="$HOME/.pi/agent/AGENTS.md"
 CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
 CODEX_SKILLS_DEST="$CODEX_ROOT/skills"
 CODEX_RULES_DEST="$CODEX_ROOT/AGENTS.md"
@@ -30,14 +31,14 @@ usage() {
 Usage: update-config.sh [--clean] [--yes] [--help]
 
   --clean  Remove everything from the managed skill/rule/extension folders
-           before republishing. Generated Pi and Codex AGENTS.md files are
-           removed only when this script owns them.
+           before republishing. Legacy generated Pi and current Codex AGENTS.md
+           files are removed only when this script owns them.
   --yes    Skip the --clean confirmation prompt.
   --help   Show this message.
 
 Without --clean the script is additive and never replaces files it did not
-create or link. An unmanaged Pi or Codex AGENTS.md causes an error because the
-script cannot install the configured global rules safely.
+create or link. An unmanaged Codex AGENTS.md causes an error because the script
+cannot install the configured global rules safely.
 USAGE
 }
 
@@ -255,6 +256,7 @@ clean_targets() {
     "$COPILOT_INSTRUCTIONS_DEST" "copilot/instructions" \
     "$PI_SKILLS_DEST" "pi/skills" \
     "$PI_EXTENSIONS_DEST" "pi/extensions" \
+    "$PI_RULES_DEST" "pi/rules" \
     "$CODEX_SKILLS_DEST" "codex/skills"
 }
 
@@ -271,10 +273,10 @@ list_clean_entries() {
     done
   done
 
-  for entry in "$PI_RULES_DEST" "$CODEX_RULES_DEST"; do
+  for entry in "$PI_LEGACY_RULES_DEST" "$CODEX_RULES_DEST"; do
     is_generated_file "$entry" || continue
     case "$entry" in
-      "$PI_RULES_DEST") label="pi/AGENTS.md" ;;
+      "$PI_LEGACY_RULES_DEST") label="pi/AGENTS.md" ;;
       *) label="codex/AGENTS.md" ;;
     esac
     printf '%s\t%s\n' "$label" "$entry"
@@ -394,26 +396,31 @@ publish_pi_extensions() {
 }
 
 prune_stale_rule_links() {
-  [ -d "$CLAUDE_RULES_DEST" ] || return 0
-  find "$CLAUDE_RULES_DEST" -type l -print0 | while IFS= read -r -d '' target; do
+  dest="$1"
+  label="$2"
+  [ -d "$dest" ] || return 0
+  find "$dest" -type l -print0 | while IFS= read -r -d '' target; do
     is_owned_link "$target" || continue
     [ -e "$target" ] && continue
-    relative="${target#"$CLAUDE_RULES_DEST"/}"
+    relative="${target#"$dest"/}"
     rm "$target"
-    echo "removed stale: claude/rules/$relative"
+    echo "removed stale: $label/$relative"
   done
 }
 
-publish_claude_rules() {
-  mkdir -p "$CLAUDE_RULES_DEST"
-  prune_stale_rule_links
+publish_rules() {
+  dest="$1"
+  label="$2"
+  target_name="$3"
+  mkdir -p "$dest"
+  prune_stale_rule_links "$dest" "$label"
 
   find "$RULES_SRC" -type f -name '*.md' -print0 | while IFS= read -r -d '' rule; do
     relative="${rule#"$RULES_SRC"/}"
-    target="$CLAUDE_RULES_DEST/$relative"
+    target="$dest/$relative"
 
-    if ! has_target "$rule" claude; then
-      remove_owned_link "$target" "claude/rules/$relative"
+    if ! has_target "$rule" "$target_name"; then
+      remove_owned_link "$target" "$label/$relative"
       continue
     fi
 
@@ -421,19 +428,19 @@ publish_claude_rules() {
     if [ -L "$target" ]; then
       if is_owned_link "$target"; then
         ln -sfn "$rule" "$target"
-        echo "updated: claude/rules/$relative"
+        echo "updated: $label/$relative"
       else
-        echo "skip existing: claude/rules/$relative"
+        echo "skip existing: $label/$relative"
       fi
     elif [ -e "$target" ]; then
-      echo "skip existing: claude/rules/$relative"
+      echo "skip existing: $label/$relative"
     else
       ln -s "$rule" "$target"
-      echo "linked: claude/rules/$relative"
+      echo "linked: $label/$relative"
     fi
   done
 
-  prune_stale_rule_links
+  prune_stale_rule_links "$dest" "$label"
 }
 
 can_write_generated_file() {
@@ -658,7 +665,6 @@ EOF
 }
 
 validate_sources
-validate_global_rules_destination pi "$PI_RULES_DEST" "pi/AGENTS.md"
 validate_global_rules_destination codex "$CODEX_RULES_DEST" "codex/AGENTS.md"
 
 if [ "$CLEAN" -eq 1 ]; then
@@ -670,7 +676,11 @@ publish_skills "$COPILOT_SKILLS_DEST" "copilot/skills" copilot
 publish_skills "$PI_SKILLS_DEST" "pi/skills" pi
 publish_skills "$CODEX_SKILLS_DEST" "codex/skills" codex
 publish_pi_extensions
-publish_claude_rules
+publish_rules "$CLAUDE_RULES_DEST" "claude/rules" claude
+publish_rules "$PI_RULES_DEST" "pi/rules" pi
+if is_generated_file "$PI_LEGACY_RULES_DEST"; then
+  rm "$PI_LEGACY_RULES_DEST"
+  echo "removed: pi/AGENTS.md"
+fi
 generate_copilot_instructions
-generate_global_rules pi "$PI_RULES_DEST" "pi/AGENTS.md"
 generate_global_rules codex "$CODEX_RULES_DEST" "codex/AGENTS.md"

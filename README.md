@@ -20,6 +20,7 @@ skills/
     └── SKILL.md
 pi/
 └── extensions/
+    ├── context-manager.ts
     └── keyboard-shortcuts.ts
 ```
 
@@ -97,7 +98,7 @@ left untouched.
 |---|---|---|---|
 | Claude Code | `~/.claude/skills` | `~/.claude/rules` | — |
 | GitHub Copilot | `~/.copilot/skills` | `~/.copilot/instructions/*.instructions.md` | — |
-| Pi | `~/.pi/agent/skills` | `~/.pi/agent/AGENTS.md` | `~/.pi/agent/extensions` |
+| Pi | `~/.pi/agent/skills` | `~/.pi/agent/rules` | `~/.pi/agent/extensions` |
 | OpenAI Codex | `$CODEX_HOME/skills`, or `~/.codex/skills` | `$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` | — |
 
 Skills and Pi extensions are linked directly to their canonical sources. Pi
@@ -107,14 +108,26 @@ use its private `$CODEX_HOME/skills` location rather than the shared
 Codex-only skills. Claude rules are also linked directly. Copilot rules are
 generated with Claude's `paths` converted to Copilot's `applyTo`.
 
-Pi and Codex do not use Claude's conditional rule-file format. Their targeted
-rules are combined into a generated global `AGENTS.md`. Rules without `paths`
-always apply; rules with `paths` retain those patterns and are labeled as
-conditional instructions.
+Codex does not use Claude's conditional rule-file format, so its targeted rules
+are combined into a generated global `AGENTS.md`. Rules without `paths` always
+apply; rules with `paths` retain those patterns and are labeled as conditional
+instructions.
 
-The scripts will not overwrite an unmanaged Pi or Codex `AGENTS.md`, because
-silently doing so would destroy user instructions. Move those instructions into
-this repo's `rules/` folder or remove the file before running the script.
+Pi rules remain separate under `~/.pi/agent/rules`. The `context-manager.ts`
+extension scans the current Git project and adds only enabled rules whose
+`paths` match at least one tracked or unignored file. Rules without `paths`
+always match. Use `/rules` in Pi to enable or disable individual rule files.
+Selections persist in `~/.pi/agent/context-manager.json`.
+
+Use `/skills` in Pi to choose whether each skill is `agent` enabled or
+`user only`. Agent-enabled skills expose their name, description, and path to
+the model so it can load them automatically. User-only skills remain available
+through `/skill:name` but are removed from the model's initial context.
+
+The scripts will not overwrite an unmanaged Codex `AGENTS.md`, because silently
+doing so would destroy user instructions. Pi leaves unmanaged `AGENTS.md` files
+alone and removes only the legacy generated global file created by older
+versions of this repository.
 
 Copilot CLI and VS Code both read `~/.copilot` directly, so Copilot content is
 published only once. VS Code also discovers Claude locations by default, which
@@ -153,11 +166,13 @@ not created by this repo:
 - `~/.copilot/instructions`
 - `~/.pi/agent/skills`
 - `~/.pi/agent/extensions`
+- `~/.pi/agent/rules`
 - `$CODEX_HOME/skills`, or `~/.codex/skills`
 
-Codex's managed `$CODEX_HOME/skills/.system` directory is preserved. Generated
-Pi and Codex `AGENTS.md` files are removed only when they contain this repo's
-generated marker. The script lists removals and asks for confirmation.
+Codex's managed `$CODEX_HOME/skills/.system` directory is preserved. The legacy
+generated Pi `AGENTS.md` and current generated Codex `AGENTS.md` are removed only
+when they contain this repo's generated marker. The script lists removals and
+asks for confirmation.
 Pass `--yes` (`-Yes` on Windows) to skip the prompt; this is required for a
 non-interactive clean.
 

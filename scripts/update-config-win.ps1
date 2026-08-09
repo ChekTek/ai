@@ -27,7 +27,8 @@ $ClaudeSkillsDest = Join-Path $HOME '.claude\skills'
 $CopilotSkillsDest = Join-Path $HOME '.copilot\skills'
 $PiSkillsDest = Join-Path $HOME '.pi\agent\skills'
 $PiExtensionsDest = Join-Path $HOME '.pi\agent\extensions'
-$PiRulesDest = Join-Path $HOME '.pi\agent\AGENTS.md'
+$PiRulesDest = Join-Path $HOME '.pi\agent\rules'
+$PiLegacyRulesDest = Join-Path $HOME '.pi\agent\AGENTS.md'
 
 if ($env:COPILOT_CLI_INSTRUCTIONS_DIR) {
     $CopilotInstructionsDest = $env:COPILOT_CLI_INSTRUCTIONS_DIR
@@ -224,6 +225,7 @@ function Get-CleanTargets {
         @{ Dir = $CopilotInstructionsDest; Label = 'copilot/instructions' }
         @{ Dir = $PiSkillsDest; Label = 'pi/skills' }
         @{ Dir = $PiExtensionsDest; Label = 'pi/extensions' }
+        @{ Dir = $PiRulesDest; Label = 'pi/rules' }
         @{ Dir = $CodexSkillsDest; Label = 'codex/skills' }
     )
 }
@@ -242,7 +244,7 @@ function Invoke-Clean {
         }
 
         foreach ($generated in @(
-            @{ Path = $PiRulesDest; Label = 'pi/AGENTS.md' }
+            @{ Path = $PiLegacyRulesDest; Label = 'pi/AGENTS.md' }
             @{ Path = $CodexRulesDest; Label = 'codex/AGENTS.md' }
         )) {
             if (Test-GeneratedFile $generated.Path) {
@@ -378,51 +380,62 @@ function Get-RelativePath {
     return $Path.Substring($prefix.Length).Replace('\', '/')
 }
 
-function Remove-StaleClaudeRuleLinks {
-    if (-not (Test-Path -LiteralPath $ClaudeRulesDest -PathType Container)) { return }
+function Remove-StaleRuleLinks {
+    param(
+        [string] $Dest,
+        [string] $Label
+    )
 
-    Get-ChildItem -LiteralPath $ClaudeRulesDest -Force -Recurse | ForEach-Object {
+    if (-not (Test-Path -LiteralPath $Dest -PathType Container)) { return }
+
+    Get-ChildItem -LiteralPath $Dest -Force -Recurse | ForEach-Object {
         if (-not $_.LinkType -or -not (Test-OwnedLink $_.FullName)) { return }
         $linkExists = @($_.Target) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
         if ($linkExists) { return }
-        $relative = Get-RelativePath $ClaudeRulesDest $_.FullName
+        $relative = Get-RelativePath $Dest $_.FullName
         Remove-LinkItem $_
-        Write-Host "removed stale: claude/rules/$relative"
+        Write-Host "removed stale: $Label/$relative"
     }
 }
 
-function Publish-ClaudeRules {
-    New-Item -ItemType Directory -Force $ClaudeRulesDest | Out-Null
-    Remove-StaleClaudeRuleLinks
+function Publish-Rules {
+    param(
+        [string] $Dest,
+        [string] $Label,
+        [string] $TargetName
+    )
+
+    New-Item -ItemType Directory -Force $Dest | Out-Null
+    Remove-StaleRuleLinks $Dest $Label
 
     Get-ChildItem -LiteralPath $RulesSrc -Filter '*.md' -File -Recurse | ForEach-Object {
         $relative = Get-RelativePath $RulesSrc $_.FullName
-        $target = Join-Path $ClaudeRulesDest $relative
+        $target = Join-Path $Dest $relative
 
-        if (-not (Test-SourceTargets $_.FullName 'claude')) {
-            Remove-OwnedLink $target "claude/rules/$relative"
+        if (-not (Test-SourceTargets $_.FullName $TargetName)) {
+            Remove-OwnedLink $target "$Label/$relative"
             return
         }
 
         New-Item -ItemType Directory -Force (Split-Path -Parent $target) | Out-Null
         $existing = Get-ExistingItem $target
         if ($existing -and -not (Test-OwnedLink $target)) {
-            Write-Host "skip existing: claude/rules/$relative"
+            Write-Host "skip existing: $Label/$relative"
             return
         }
 
         if ($existing) {
             Remove-LinkItem $existing
             New-Item -ItemType SymbolicLink -Path $target -Target $_.FullName | Out-Null
-            Write-Host "updated: claude/rules/$relative"
+            Write-Host "updated: $Label/$relative"
         }
         else {
             New-Item -ItemType SymbolicLink -Path $target -Target $_.FullName | Out-Null
-            Write-Host "linked: claude/rules/$relative"
+            Write-Host "linked: $Label/$relative"
         }
     }
 
-    Remove-StaleClaudeRuleLinks
+    Remove-StaleRuleLinks $Dest $Label
 }
 
 function Test-GeneratedFileWritable {
@@ -655,7 +668,6 @@ function Generate-GlobalRules {
 }
 
 Assert-ValidSources
-Assert-GlobalRulesDestination 'pi' $PiRulesDest 'pi/AGENTS.md'
 Assert-GlobalRulesDestination 'codex' $CodexRulesDest 'codex/AGENTS.md'
 
 if ($Clean) { Invoke-Clean }
@@ -665,7 +677,11 @@ Publish-Skills $CopilotSkillsDest 'copilot/skills' 'copilot'
 Publish-Skills $PiSkillsDest 'pi/skills' 'pi'
 Publish-Skills $CodexSkillsDest 'codex/skills' 'codex'
 Publish-PiExtensions
-Publish-ClaudeRules
+Publish-Rules $ClaudeRulesDest 'claude/rules' 'claude'
+Publish-Rules $PiRulesDest 'pi/rules' 'pi'
+if (Test-GeneratedFile $PiLegacyRulesDest) {
+    Remove-Item -LiteralPath $PiLegacyRulesDest -Force
+    Write-Host 'removed: pi/AGENTS.md'
+}
 Generate-CopilotInstructions
-Generate-GlobalRules 'pi' $PiRulesDest 'pi/AGENTS.md'
 Generate-GlobalRules 'codex' $CodexRulesDest 'codex/AGENTS.md'
