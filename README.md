@@ -124,6 +124,13 @@ Use `/skills` in Pi to choose whether each skill is `agent` enabled or
 the model so it can load them automatically. User-only skills remain available
 through `/skill:name` but are removed from the model's initial context.
 
+Use `/context` to open a searchable, read-only table covering the estimated
+next request, Pi's current usage measurement, effective system prompt,
+conversation, active tool definitions, injected and excluded rules,
+agent-visible skills, Pi context files, and context-manager contribution.
+User-only skills are omitted because they are not part of the model context.
+Select a row to see details.
+
 The scripts will not overwrite an unmanaged Codex `AGENTS.md`, because silently
 doing so would destroy user instructions. Pi leaves unmanaged `AGENTS.md` files
 alone and removes only the legacy generated global file created by older
