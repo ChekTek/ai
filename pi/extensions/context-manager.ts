@@ -9,10 +9,12 @@ import {
 import { matchesGlob, relative, resolve, sep } from "node:path";
 
 import {
+	estimateTokens,
 	formatSkillsForPrompt,
 	getAgentDir,
 	getSettingsListTheme,
 	parseFrontmatter,
+	sessionEntryToContextMessages,
 	type BuildSystemPromptOptions,
 	type ExtensionAPI,
 	type ExtensionCommandContext,
@@ -195,6 +197,12 @@ function pathMatchesGlob(filePath: string, pattern: string): boolean {
 	}
 }
 
+/** Returns the project files matched by a rule's path globs. */
+function matchingProjectFiles(rule: Rule, projectFiles: string[]): string[] {
+	if (rule.paths.length === 0) return [];
+	return projectFiles.filter((filePath) => rule.paths.some((pattern) => pathMatchesGlob(filePath, pattern)));
+}
+
 /** Returns whether a rule applies to the current project. */
 function ruleMatchesProject(rule: Rule, projectFiles: string[]): boolean {
 	if (rule.paths.length === 0) return true;
@@ -246,6 +254,179 @@ function applySkillVisibility(
 		: `${systemPrompt}${selectedBlock}`;
 }
 
+/** Builds table rows describing all context visible to the model. */
+function buildContextItems(
+	pi: ExtensionAPI,
+	ctx: ExtensionCommandContext,
+	config: ContextManagerConfig,
+	rules: Rule[],
+): SettingItem[] {
+	const projectFiles = listProjectFiles(ctx.cwd);
+	const options = ctx.getSystemPromptOptions();
+	const activeRules: Rule[] = [];
+	const ruleItems: SettingItem[] = [];
+
+	for (const rule of rules) {
+		if (!isRuleEnabled(rule, config)) {
+			ruleItems.push({
+				id: `rule:${rule.relativePath}`,
+				label: `rule • ${rule.relativePath}`,
+				description: "Not added to context because this rule is disabled.",
+				currentValue: "disabled",
+			});
+			continue;
+		}
+
+		if (rule.paths.length === 0) {
+			activeRules.push(rule);
+			ruleItems.push({
+				id: `rule:${rule.relativePath}`,
+				label: `rule • ${rule.relativePath}`,
+				description: "Added to context because this rule applies to all projects.",
+				currentValue: "injected",
+			});
+			continue;
+		}
+
+		const matches = matchingProjectFiles(rule, projectFiles);
+		if (matches.length === 0) {
+			ruleItems.push({
+				id: `rule:${rule.relativePath}`,
+				label: `rule • ${rule.relativePath}`,
+				description: `Not added to context. No project files match ${rule.paths.join(", ")}.`,
+				currentValue: "not matched",
+			});
+			continue;
+		}
+
+		const examples = matches.slice(0, 3).join(", ");
+		const remaining = matches.length > 3 ? `, and ${matches.length - 3} more` : "";
+		activeRules.push(rule);
+		ruleItems.push({
+			id: `rule:${rule.relativePath}`,
+			label: `rule • ${rule.relativePath}`,
+			description: `Added to context. Matched ${matches.length} project file${matches.length === 1 ? "" : "s"}: ${examples}${remaining}.`,
+			currentValue: "injected",
+		});
+	}
+
+	const items: SettingItem[] = [];
+	const systemPrompt = ctx.getSystemPrompt();
+	const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+	const conversationMessages = ctx.sessionManager
+		.buildContextEntries()
+		.flatMap(sessionEntryToContextMessages);
+	const conversationTokens = conversationMessages.reduce(
+		(total, message) => total + estimateTokens(message),
+		0,
+	);
+	const activeToolNames = new Set(pi.getActiveTools());
+	const activeTools = pi.getAllTools().filter((tool) => activeToolNames.has(tool.name));
+	const serializedTools = JSON.stringify(
+		activeTools.map(({ name, description, parameters }) => ({ name, description, parameters })),
+	);
+	const toolTokens = Math.ceil(serializedTools.length / 4);
+	const estimatedRequestTokens = systemPromptTokens + conversationTokens + toolTokens;
+	const contextUsage = ctx.getContextUsage();
+	const contextTokens = contextUsage?.tokens;
+	const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow;
+	const estimatedPercent = contextWindow && contextWindow > 0
+		? (estimatedRequestTokens / contextWindow) * 100
+		: undefined;
+	const contextPercent = contextUsage?.percent;
+	const contextValue = contextTokens === null || contextTokens === undefined
+		? "unknown"
+		: `${contextTokens.toLocaleString()} / ${contextWindow?.toLocaleString() ?? "?"}`;
+	const contextDescription = contextPercent === null || contextPercent === undefined
+		? "The percentage is not currently available."
+		: `${contextPercent.toFixed(1)}% of the model's context window is in use.`;
+
+	items.push({
+		id: "estimated-request-size",
+		label: "estimated request",
+		description: `Approximate Pi-visible input from the system prompt, active tool definitions, and conversation. ${estimatedPercent?.toFixed(1) ?? "?"}% of the model's context window. Provider serialization and provider-side additions can change the actual count.`,
+		currentValue: `~${estimatedRequestTokens.toLocaleString()} / ${contextWindow?.toLocaleString() ?? "?"}`,
+	});
+	items.push({
+		id: "pi-context-usage",
+		label: "Pi context usage",
+		description: `Pi's usage derived from the latest assistant response plus trailing messages. It can be zero before the first model response or unknown immediately after compaction and should not be added to the component rows. ${contextDescription}`,
+		currentValue: contextValue,
+	});
+	items.push({
+		id: "system-prompt-size",
+		label: "system prompt",
+		description: `${systemPrompt.length.toLocaleString()} characters in Pi's current effective system prompt, including base instructions, context files, visible skills, and extension changes from the latest turn.`,
+		currentValue: `~${systemPromptTokens.toLocaleString()} tokens`,
+	});
+	items.push({
+		id: "conversation-size",
+		label: "conversation",
+		description: `Approximate size of ${conversationMessages.length.toLocaleString()} context-visible messages on the active, compaction-aware session branch.`,
+		currentValue: `~${conversationTokens.toLocaleString()} tokens`,
+	});
+	items.push({
+		id: "tool-definitions-size",
+		label: "tool definitions",
+		description: `Approximate serialized size of ${activeTools.length.toLocaleString()} active tool definitions. Provider-specific schema formatting may change the actual token count.`,
+		currentValue: `~${toolTokens.toLocaleString()} tokens`,
+	});
+
+	const selectedSkills = (options.skills ?? []).map((skill) => ({
+		...skill,
+		disableModelInvocation: skillMode(skill, config) === "user only",
+	}));
+	const agentSkills = selectedSkills.filter((skill) => !skill.disableModelInvocation);
+	for (const skill of agentSkills) {
+		items.push({
+			id: `skill:${skill.name}`,
+			label: `skill • ${skill.name}`,
+			description: skill.description,
+			currentValue: "visible",
+		});
+	}
+	if (agentSkills.length === 0) {
+		items.push({
+			id: "skills:none",
+			label: "skills",
+			description: "No skill names or descriptions are included in the model context.",
+			currentValue: "none visible",
+		});
+	}
+
+	const contextFiles = options.contextFiles ?? [];
+	for (const file of contextFiles) {
+		items.push({
+			id: `context-file:${file.path}`,
+			label: `context • ${file.path}`,
+			description: `${file.content.length.toLocaleString()} source characters loaded by Pi outside the context manager extension. This content is included in the system prompt row.`,
+			currentValue: `~${Math.ceil(file.content.length / 4).toLocaleString()} tokens`,
+		});
+	}
+	if (contextFiles.length === 0) {
+		items.push({
+			id: "context-files:none",
+			label: "context files",
+			description: "Pi did not load any context files outside this extension.",
+			currentValue: "none loaded",
+		});
+	}
+
+	const hasRead = !options.selectedTools || options.selectedTools.includes("read");
+	const skillCatalog = hasRead ? formatSkillsForPrompt(selectedSkills) : "";
+	const managedCharacters = formatRules(activeRules).length + skillCatalog.length;
+	const managedTokens = Math.ceil(managedCharacters / 4);
+	items.push({
+		id: "managed-context-size",
+		label: "context manager",
+		description: `${managedCharacters.toLocaleString()} characters from injected rules and the visible skill catalog. This is already included in the system prompt and estimated request rows. Rule matching is project-wide.`,
+		currentValue: `~${managedTokens.toLocaleString()} tokens`,
+	});
+	items.push(...ruleItems);
+
+	return items;
+}
+
 /** Persists a config update and reports failures in the TUI. */
 function persistConfig(config: ContextManagerConfig, ctx: ExtensionCommandContext): boolean {
 	try {
@@ -264,6 +445,7 @@ async function showSettings(
 	items: SettingItem[],
 	onChange: (id: string, value: string) => void,
 	ctx: ExtensionCommandContext,
+	readOnly = false,
 ): Promise<void> {
 	if (ctx.mode !== "tui") {
 		ctx.ui.notify(`/${title.toLowerCase()} requires TUI mode`, "error");
@@ -274,10 +456,17 @@ async function showSettings(
 		const container = new Container();
 		container.addChild(new Text(theme.fg("accent", theme.bold(title)), 1, 1));
 
+		const settingsTheme = getSettingsListTheme();
+		const listTheme = readOnly
+			? {
+				...settingsTheme,
+				hint: (text: string) => settingsTheme.hint(text.replace("Enter/Space to change · ", "")),
+			}
+			: settingsTheme;
 		const settings = new SettingsList(
 			items,
 			Math.min(items.length + 2, 18),
-			getSettingsListTheme(),
+			listTheme,
 			onChange,
 			() => done(undefined),
 			{ enableSearch: true },
@@ -288,7 +477,10 @@ async function showSettings(
 			render: (width: number) => container.render(width),
 			invalidate: () => container.invalidate(),
 			handleInput: (data: string) => {
-				settings.handleInput(data);
+				const isReadOnlyAction = readOnly && (
+					_keybindings.matches(data, "tui.select.confirm") || data === " "
+				);
+				if (!isReadOnlyAction) settings.handleInput(data);
 				tui.requestRender();
 			},
 		};
@@ -299,6 +491,20 @@ async function showSettings(
 export default function contextManagerExtension(pi: ExtensionAPI): void {
 	let config = loadConfig();
 	let rules = loadRules();
+
+	pi.registerCommand("context", {
+		description: "Inspect model context sources and estimated sizes",
+		handler: async (_args, ctx) => {
+			if (ctx.mode !== "tui") {
+				ctx.ui.notify("/context requires TUI mode", "error");
+				return;
+			}
+
+			rules = loadRules();
+			const items = buildContextItems(pi, ctx, config, rules);
+			await showSettings("Context", items, () => {}, ctx, true);
+		},
+	});
 
 	pi.registerCommand("rules", {
 		description: "Enable or disable conditional rule files",
