@@ -1,11 +1,11 @@
 # AI Configuration
 
 User-level coding instructions and skills shared across **Claude Code**,
-**GitHub Copilot**, **Pi**, and **OpenAI Codex**.
+**GitHub Copilot**, **Pi**, and **OpenAI Codex**, plus Pi extensions.
 
-The root `rules/` and `skills/` folders are the source of truth. The update
-scripts validate and publish them in the native user/global format each harness
-expects.
+The root `rules/`, `skills/`, and `pi/extensions/` folders are the source of
+truth. The update scripts validate and publish them in the native user/global
+format each harness expects.
 
 ## Source Layout
 
@@ -18,6 +18,9 @@ rules/
 skills/
 └── refine-ticket/
     └── SKILL.md
+pi/
+└── extensions/
+    └── keyboard-shortcuts.ts
 ```
 
 Keep source files out of native folders such as `.claude` and `.agents`. Native
@@ -90,14 +93,15 @@ left untouched.
 
 ## Published Locations
 
-| Harness | Skills | Rules |
-|---|---|---|
-| Claude Code | `~/.claude/skills` | `~/.claude/rules` |
-| GitHub Copilot | `~/.copilot/skills` | `~/.copilot/instructions/*.instructions.md` |
-| Pi | `~/.pi/agent/skills` | `~/.pi/agent/AGENTS.md` |
-| OpenAI Codex | `$CODEX_HOME/skills`, or `~/.codex/skills` | `$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` |
+| Harness | Skills | Rules | Extensions |
+|---|---|---|---|
+| Claude Code | `~/.claude/skills` | `~/.claude/rules` | — |
+| GitHub Copilot | `~/.copilot/skills` | `~/.copilot/instructions/*.instructions.md` | — |
+| Pi | `~/.pi/agent/skills` | `~/.pi/agent/AGENTS.md` | `~/.pi/agent/extensions` |
+| OpenAI Codex | `$CODEX_HOME/skills`, or `~/.codex/skills` | `$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` | — |
 
-Skills are linked directly to their canonical source directory. Codex skills
+Skills and Pi extensions are linked directly to their canonical sources. Pi
+extensions are Pi-specific and do not use `metadata.targets`. Codex skills
 use its private `$CODEX_HOME/skills` location rather than the shared
 `~/.agents/skills`, because Pi also discovers the shared location and would see
 Codex-only skills. Claude rules are also linked directly. Copilot rules are
@@ -148,6 +152,7 @@ not created by this repo:
 - `~/.copilot/skills`
 - `~/.copilot/instructions`
 - `~/.pi/agent/skills`
+- `~/.pi/agent/extensions`
 - `$CODEX_HOME/skills`, or `~/.codex/skills`
 
 Codex's managed `$CODEX_HOME/skills/.system` directory is preserved. Generated
