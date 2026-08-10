@@ -1,0 +1,13 @@
+{
+  "name": "local-pi-web-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "html-to-text": "9.0.5",
+    "linkedom": "0.18.13",
+    "turndown": "7.2.4",
+    "turndown-plugin-gfm": "1.0.2"
+  }
+}

@@ -21,7 +21,9 @@ skills/
 pi/
 └── extensions/
     ├── context-manager.ts
-    └── keyboard-shortcuts.ts
+    ├── keyboard-shortcuts.ts
+    └── web-tools/
+        └── index.ts
 ```
 
 Keep source files out of native folders such as `.claude` and `.agents`. Native
@@ -90,7 +92,8 @@ be created:
 
 Re-run the script after changing targets, adding files, or pulling updates.
 Links owned by this repo and generated files are refreshed; unrelated files are
-left untouched.
+left untouched. Runtime dependencies declared by local Pi extension directories
+are installed with lifecycle scripts disabled.
 
 ## Published Locations
 
@@ -154,6 +157,28 @@ Code when using this setup:
 
 Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override Copilot's instruction folder.
 Set `CODEX_HOME` to override the Codex configuration folder.
+
+### Pi Web Tools
+
+The `pi/extensions/web-tools/` extension adds the `webfetch` and `websearch`
+tools. Its source is vendored from [dmmulroy/pi-web-tools][pi-web-tools] under
+the MIT license; `LICENSE` is kept alongside the source. Only the runtime files
+are vendored, so the upstream tests, `tsconfig.json`, and dev dependencies are
+omitted.
+
+The update scripts run `npm install` in the extension folder before linking it,
+so `node_modules/` is generated locally and ignored by Git while
+`package-lock.json` is tracked.
+
+`webfetch` works without configuration. `websearch` needs an Exa MCP-compatible
+endpoint exported before Pi starts, otherwise the tool fails when it is first
+called:
+
+```bash
+export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"
+```
+
+[pi-web-tools]: https://github.com/dmmulroy/pi-web-tools
 
 ## Starting Fresh
 
