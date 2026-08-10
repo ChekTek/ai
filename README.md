@@ -22,8 +22,9 @@ pi/
 └── extensions/
     ├── context-manager.ts
     ├── keyboard-shortcuts.ts
+    ├── web-tools.ts
     └── web-tools/
-        └── index.ts
+        └── extension.ts
 ```
 
 Keep source files out of native folders such as `.claude` and `.agents`. Native
@@ -160,13 +161,28 @@ Set `CODEX_HOME` to override the Codex configuration folder.
 
 ### Pi Web Tools
 
-The `pi/extensions/web-tools/` extension adds the `webfetch` and `websearch`
-tools. Its source is vendored from [dmmulroy/pi-web-tools][pi-web-tools] under
-the MIT license; `LICENSE` is kept alongside the source. Only files reachable
-from `index.ts` are vendored, so the upstream tests, `tsconfig.json`, dev
-dependencies, and two modules no harness reaches (`truncation.ts`, superseded by
+The `pi/extensions/web-tools.ts` entry point plus the `pi/extensions/web-tools/`
+directory add the `webfetch` and `websearch` tools. The implementation is
+vendored from [dmmulroy/pi-web-tools][pi-web-tools] under the MIT license;
+`LICENSE` is kept alongside the source. Only files reachable from the entry
+point are vendored, so the upstream tests, `tsconfig.json`, dev dependencies,
+and two modules no harness reaches (`truncation.ts`, superseded by
 `tool-output.ts`, and the `vendor.d.ts` ambient types, which only a `tsc` run
 consumes) are omitted.
+
+Upstream ships its entry point as `index.ts`, which makes Pi load the folder as
+a directory extension. This copy renames it to `web-tools/extension.ts` and
+re-exports it from `web-tools.ts` instead, because the `pi-acp` ACP adapter
+(used by editors such as Zed) builds its startup list with
+`readdirSync(extensionsDir).filter(f => f.endsWith(".ts") || f.endsWith(".js"))`
+and therefore never shows a directory extension. The re-export is the single
+registration; keeping both an `index.ts` and a wrapper makes Pi load the
+extension twice and fail with `Tool "webfetch" conflicts with ...`.
+
+The wrapper has to sit next to the directory rather than point straight at the
+entry point, because Pi resolves an extension's relative imports against the
+symlink path rather than the real path. A `web-tools.ts` symlinked directly to
+`web-tools/extension.ts` fails with `Cannot find module './webfetch.ts'`.
 
 The update scripts run `npm install` in the extension folder before linking it,
 so `node_modules/` is generated locally and ignored by Git while
@@ -185,18 +201,7 @@ GUI-launched editor using the ACP integration does not inherit a shell profile.
 Set it where that process can see it, or start the editor from a shell that
 exports it.
 
-Extensions resolve once at startup. Restart Pi after publishing a new one, and
-expect directory extensions to be listed by entry point
-(`extensions/web-tools/index.ts`) rather than by folder.
-
-The `pi-acp` ACP adapter (used by editors such as Zed) builds its own startup
-list with `readdirSync(extensionsDir).filter(f => f.endsWith(".ts") || f.endsWith(".js"))`,
-so a directory extension never appears there. That listing is cosmetic and does
-not reflect what Pi loaded; `pi --mode rpc` (what the adapter spawns) does
-register `webfetch` and `websearch`. Do not try to work around it by linking
-`web-tools.ts` straight at `web-tools/index.ts`: Pi resolves an extension's
-relative imports against the symlink path rather than the real path, so the
-sibling modules stop resolving.
+Extensions resolve once at startup, so restart Pi after publishing a new one.
 
 [pi-web-tools]: https://github.com/dmmulroy/pi-web-tools
 
