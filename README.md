@@ -162,9 +162,11 @@ Set `CODEX_HOME` to override the Codex configuration folder.
 
 The `pi/extensions/web-tools/` extension adds the `webfetch` and `websearch`
 tools. Its source is vendored from [dmmulroy/pi-web-tools][pi-web-tools] under
-the MIT license; `LICENSE` is kept alongside the source. Only the runtime files
-are vendored, so the upstream tests, `tsconfig.json`, and dev dependencies are
-omitted.
+the MIT license; `LICENSE` is kept alongside the source. Only files reachable
+from `index.ts` are vendored, so the upstream tests, `tsconfig.json`, dev
+dependencies, and two modules no harness reaches (`truncation.ts`, superseded by
+`tool-output.ts`, and the `vendor.d.ts` ambient types, which only a `tsc` run
+consumes) are omitted.
 
 The update scripts run `npm install` in the extension folder before linking it,
 so `node_modules/` is generated locally and ignored by Git while
