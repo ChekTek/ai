@@ -162,13 +162,7 @@ Set `CODEX_HOME` to override the Codex configuration folder.
 ### Pi Web Tools
 
 The `pi/extensions/web-tools.ts` entry point plus the `pi/extensions/web-tools/`
-directory add the `webfetch` and `websearch` tools. The implementation is
-vendored from [dmmulroy/pi-web-tools][pi-web-tools] under the MIT license;
-`LICENSE` is kept alongside the source. Only files reachable from the entry
-point are vendored, so the upstream tests, `tsconfig.json`, dev dependencies,
-and two modules no harness reaches (`truncation.ts`, superseded by
-`tool-output.ts`, and the `vendor.d.ts` ambient types, which only a `tsc` run
-consumes) are omitted.
+directory add the `webfetch` and `websearch` tools.
 
 Upstream ships its entry point as `index.ts`, which makes Pi load the folder as
 a directory extension. This copy renames it to `web-tools/extension.ts` and
