@@ -189,6 +189,15 @@ Extensions resolve once at startup. Restart Pi after publishing a new one, and
 expect directory extensions to be listed by entry point
 (`extensions/web-tools/index.ts`) rather than by folder.
 
+The `pi-acp` ACP adapter (used by editors such as Zed) builds its own startup
+list with `readdirSync(extensionsDir).filter(f => f.endsWith(".ts") || f.endsWith(".js"))`,
+so a directory extension never appears there. That listing is cosmetic and does
+not reflect what Pi loaded; `pi --mode rpc` (what the adapter spawns) does
+register `webfetch` and `websearch`. Do not try to work around it by linking
+`web-tools.ts` straight at `web-tools/index.ts`: Pi resolves an extension's
+relative imports against the symlink path rather than the real path, so the
+sibling modules stop resolving.
+
 [pi-web-tools]: https://github.com/dmmulroy/pi-web-tools
 
 ## Starting Fresh
