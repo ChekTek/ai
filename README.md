@@ -178,6 +178,15 @@ called:
 export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"
 ```
 
+Pi reads this from the environment of the process that launches it, so a
+GUI-launched editor using the ACP integration does not inherit a shell profile.
+Set it where that process can see it, or start the editor from a shell that
+exports it.
+
+Extensions resolve once at startup. Restart Pi after publishing a new one, and
+expect directory extensions to be listed by entry point
+(`extensions/web-tools/index.ts`) rather than by folder.
+
 [pi-web-tools]: https://github.com/dmmulroy/pi-web-tools
 
 ## Starting Fresh
