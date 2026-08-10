@@ -363,11 +363,24 @@ publish_skills() {
   done
 }
 
+install_pi_extension_dependencies() {
+  extension="$1"
+  [ -f "$extension/package.json" ] || return 0
+
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "cannot install dependencies for $extension: npm is not on PATH" >&2
+    return 1
+  fi
+
+  npm install --prefix "$extension" --omit=dev --ignore-scripts --no-audit --no-fund
+}
+
 publish_pi_extensions() {
   mkdir -p "$PI_EXTENSIONS_DEST"
 
   for extension in "$PI_EXTENSIONS_SRC"/*; do
     [ -e "$extension" ] || continue
+    install_pi_extension_dependencies "$extension"
     name="$(basename "$extension")"
     target="$PI_EXTENSIONS_DEST/$name"
 

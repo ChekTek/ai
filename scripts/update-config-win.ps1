@@ -336,10 +336,26 @@ function Publish-Skills {
     }
 }
 
+function Install-PiExtensionDependencies {
+    param([System.IO.DirectoryInfo] $Extension)
+
+    $packagePath = Join-Path $Extension.FullName 'package.json'
+    if (-not (Test-Path -LiteralPath $packagePath -PathType Leaf)) { return }
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        throw "cannot install dependencies for $($Extension.FullName): npm is not on PATH"
+    }
+
+    & npm install --prefix $Extension.FullName --omit=dev --ignore-scripts --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) {
+        throw "failed to install dependencies for $($Extension.FullName)"
+    }
+}
+
 function Publish-PiExtensions {
     New-Item -ItemType Directory -Force $PiExtensionsDest | Out-Null
 
     Get-ChildItem -LiteralPath $PiExtensionsSrc | ForEach-Object {
+        if ($_.PSIsContainer) { Install-PiExtensionDependencies $_ }
         $target = Join-Path $PiExtensionsDest $_.Name
         $existing = Get-ExistingItem $target
         if ($existing -and -not (Test-OwnedLink $target)) {
