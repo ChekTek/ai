@@ -229,11 +229,13 @@ non-interactive clean.
 
 ## Copilot Agent Orchestration
 
-Two skills delegate repository work to a Copilot CLI model in the other model
+Skills that delegate repository work to a Copilot CLI model in another model
 family so the worker's blind spots differ from the reviewer's:
 
-- `orchestrate-gpt` — use from a Claude model; dispatches Sol, Terra, or Luna.
-- `orchestrate-claude` — use from a GPT model; dispatches Opus 5 or Sonnet 5.
+- `orchestrate-gpt` — use from a non-GPT model; dispatches Sol, Terra, or Luna.
+- `orchestrate-claude` — use from a non-Claude model; dispatches Opus 5 or Sonnet 5.
+- `orchestrate-grok` — use from a non-Grok model; dispatches Grok 4.5 by effort.
+- `orchestrate-kimi` — use from a non-Kimi model; dispatches Kimi K3 by effort.
 
 Each requires the calling agent to verify the resulting diff. The skills expect
 `copilot` to be installed and authenticated.
