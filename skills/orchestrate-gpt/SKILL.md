@@ -9,8 +9,9 @@ disable-model-invocation: true
 
 Delegate to a GPT worker, then verify the result yourself. You own the outcome.
 
-If you are a GPT model, use `orchestrate-claude` instead — always delegate
-across model families so the worker's blind spots differ from yours.
+If you are a GPT model, use `orchestrate-claude`, `orchestrate-grok`, or
+`orchestrate-kimi` instead — always delegate across model families so the
+worker's blind spots differ from yours.
 
 ## Models
 
@@ -39,6 +40,6 @@ Add-ons: `--context long_context` (large repo/diff), `--enable-all-github-mcp-to
    ```
 7. Review the diff and run tests/build yourself — its claim of success isn't proof **DO NOT DELEGATE THE REVIEW**.
 8. If it fell short, send one focused follow-up to the same model. If that fails,
-   fix it yourself.spawn /Users/zack/Library/Application Support/com.elgato.StreamDeck/Plugins/com.chektek.yap.sdPlugin/native/darwin-arm64/yap-helper EACCESspawn /Users/zack/Library/Application Support/com.elgato.StreamDeck/Plugins/com.chektek.yap.sdPlugin/native/darwin-arm64/yap-helper EACCES
+   fix it yourself.
 
 Report what changed and what you verified.

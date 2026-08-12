@@ -9,8 +9,9 @@ disable-model-invocation: true
 
 Delegate to a Claude worker, then verify the result yourself. You own the outcome.
 
-If you are a Claude model, use `orchestrate-gpt` instead — always delegate
-across model families so the worker's blind spots differ from yours.
+If you are a Claude model, use `orchestrate-gpt`, `orchestrate-grok`, or
+`orchestrate-kimi` instead — always delegate across model families so the
+worker's blind spots differ from yours.
 
 ## Models
 
