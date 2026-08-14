@@ -347,6 +347,10 @@ button.toggle.on {
 	bottom: -4px;
 }
 
+[hidden] {
+	display: none !important;
+}
+
 .empty {
 	position: absolute;
 	inset: 0;
