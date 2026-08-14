@@ -193,7 +193,7 @@ function packSiblings(siblings, subtrees, centre = false) {
 		const subtree = subtrees.get(sibling.id);
 		const siblingExtents = subtree?.extents ?? new Map();
 		if (index === 0) {
-			extents = siblingExtents;
+			extents = cloneExtents(siblingExtents);
 			offsets.set(sibling.id, 0);
 			return;
 		}
@@ -214,6 +214,22 @@ function packSiblings(siblings, subtrees, centre = false) {
 	}
 
 	return { offsets, extents };
+}
+
+/**
+ * Copy an extent map, including the `[min, max]` arrays, so later packing cannot
+ * mutate a subtree that has already been stored.
+ * @param {Map<number, [number, number]>} source Extents to copy.
+ * @returns {Map<number, [number, number]>} Independent copy.
+ */
+function cloneExtents(source) {
+	/** @type {Map<number, [number, number]>} */
+	const cloned = new Map();
+	for (const [depth, range] of source) {
+		cloned.set(depth, [range[0], range[1]]);
+	}
+
+	return cloned;
 }
 
 /**

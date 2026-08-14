@@ -194,6 +194,8 @@ export class FlowServer {
 		const headers: Record<string, string> = {
 			"content-type": CONTENT_TYPES[extname(filePath)] ?? "application/octet-stream",
 			"cache-control": "no-store",
+			"referrer-policy": "no-referrer",
+			"x-content-type-options": "nosniff",
 		};
 
 		if (extname(filePath) === ".html") {

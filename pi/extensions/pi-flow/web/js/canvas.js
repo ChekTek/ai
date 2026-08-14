@@ -166,9 +166,13 @@ export class FlowCanvas {
 			element.classList.toggle("selected", nodeId === id);
 		}
 
-		for (const [edgeId, element] of this.#edgeElements) {
-			const edge = this.#edges.find((candidate) => candidate.id === edgeId);
-			const touches = Boolean(id) && (edge?.source === id || edge?.target === id);
+		for (const edge of this.#edges) {
+			const element = this.#edgeElements.get(edge.id);
+			if (!element) {
+				continue;
+			}
+
+			const touches = Boolean(id) && (edge.source === id || edge.target === id);
 			element.classList.toggle("highlight", touches);
 		}
 
