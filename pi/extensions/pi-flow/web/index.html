@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="dark" />
+		<title>pi-flow</title>
+		<link rel="stylesheet" href="/styles.css" />
+	</head>
+	<body data-flow-token="%%FLOW_TOKEN%%">
+		<header class="toolbar">
+			<div class="brand">
+				<span class="brand-mark"></span>
+				<span class="brand-name">pi&#8203;-flow</span>
+			</div>
+			<div class="session">
+				<span id="session-name" class="session-name">Loading session…</span>
+				<span id="session-meta" class="session-meta"></span>
+			</div>
+			<div class="actions">
+				<button id="fit" type="button" title="Fit graph to viewport (F)">Fit view</button>
+				<button id="zoom-out" type="button" title="Zoom out (-)">&minus;</button>
+				<button id="zoom-in" type="button" title="Zoom in (+)">&plus;</button>
+				<button id="follow" type="button" class="toggle" title="Keep the newest node in view">Follow</button>
+				<span id="connection" class="pill pill-offline">connecting</span>
+			</div>
+		</header>
+
+		<main class="stage" id="stage">
+			<svg class="edges" id="edges" aria-hidden="true">
+				<g id="edge-layer"></g>
+			</svg>
+			<div class="nodes" id="nodes"></div>
+			<p class="empty" id="empty">No conversation yet. Send a prompt in Pi to populate the graph.</p>
+		</main>
+
+		<aside class="inspector" id="inspector" hidden>
+			<button class="inspector-close" id="inspector-close" type="button" title="Close (Esc)">&times;</button>
+			<h2 id="inspector-title"></h2>
+			<p class="inspector-subtitle" id="inspector-subtitle"></p>
+			<div class="inspector-badges" id="inspector-badges"></div>
+			<pre class="inspector-body" id="inspector-body"></pre>
+		</aside>
+
+		<footer class="legend">
+			<span><i class="swatch swatch-user"></i>user</span>
+			<span><i class="swatch swatch-assistant"></i>assistant</span>
+			<span><i class="swatch swatch-tool"></i>tool</span>
+			<span><i class="swatch swatch-context"></i>context</span>
+			<span class="legend-hint">drag background to pan · wheel to zoom · drag a card to move it</span>
+		</footer>
+
+		<script type="module" src="/js/app.js"></script>
+	</body>
+</html>
