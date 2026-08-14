@@ -381,6 +381,21 @@ function Install-PiExtensionDependencies {
 
     $packagePath = Join-Path $Extension.FullName 'package.json'
     if (-not (Test-Path -LiteralPath $packagePath -PathType Leaf)) { return }
+
+    $pnpmLockPath = Join-Path $Extension.FullName 'pnpm-lock.yaml'
+    if (Test-Path -LiteralPath $pnpmLockPath -PathType Leaf) {
+        if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+            throw "cannot install dependencies for $($Extension.FullName): pnpm is not on PATH"
+        }
+
+        & pnpm install --dir $Extension.FullName --prod --frozen-lockfile --ignore-scripts
+        if ($LASTEXITCODE -ne 0) {
+            throw "failed to install dependencies for $($Extension.FullName)"
+        }
+
+        return
+    }
+
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
         throw "cannot install dependencies for $($Extension.FullName): npm is not on PATH"
     }
