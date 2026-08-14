@@ -388,7 +388,7 @@ function Install-PiExtensionDependencies {
             throw "cannot install dependencies for $($Extension.FullName): pnpm is not on PATH"
         }
 
-        & pnpm install --dir $Extension.FullName --prod --frozen-lockfile --ignore-scripts
+        & pnpm install --dir "$($Extension.FullName)" --prod --frozen-lockfile --ignore-scripts
         if ($LASTEXITCODE -ne 0) {
             throw "failed to install dependencies for $($Extension.FullName)"
         }
@@ -400,7 +400,7 @@ function Install-PiExtensionDependencies {
         throw "cannot install dependencies for $($Extension.FullName): npm is not on PATH"
     }
 
-    & npm install --prefix $Extension.FullName --omit=dev --ignore-scripts --no-audit --no-fund
+    & npm install --prefix "$($Extension.FullName)" --omit=dev --ignore-scripts --no-audit --no-fund
     if ($LASTEXITCODE -ne 0) {
         throw "failed to install dependencies for $($Extension.FullName)"
     }
