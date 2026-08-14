@@ -396,6 +396,16 @@ install_pi_extension_dependencies() {
   extension="$1"
   [ -f "$extension/package.json" ] || return 0
 
+  if [ -f "$extension/pnpm-lock.yaml" ]; then
+    if ! command -v pnpm >/dev/null 2>&1; then
+      echo "cannot install dependencies for $extension: pnpm is not on PATH" >&2
+      return 1
+    fi
+
+    pnpm install --dir "$extension" --prod --frozen-lockfile --ignore-scripts
+    return 0
+  fi
+
   if ! command -v npm >/dev/null 2>&1; then
     echo "cannot install dependencies for $extension: npm is not on PATH" >&2
     return 1
