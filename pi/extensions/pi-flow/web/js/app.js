@@ -22,8 +22,10 @@ const dom = {
 	fit: requireElement("fit", HTMLButtonElement),
 	zoomIn: requireElement("zoom-in", HTMLButtonElement),
 	zoomOut: requireElement("zoom-out", HTMLButtonElement),
-	follow: requireElement("follow", HTMLButtonElement),
+	auto: requireElement("auto", HTMLButtonElement),
 	connection: requireElement("connection", HTMLElement),
+	emptyPrompt: requireElement("empty-prompt", HTMLFormElement),
+	emptyPromptInput: requireElement("empty-prompt-input", HTMLTextAreaElement),
 };
 
 const canvas = new FlowCanvas(dom, {
@@ -32,10 +34,16 @@ const canvas = new FlowCanvas(dom, {
 		store.pin(id, x, y);
 		draw();
 	},
+	onPrompt: submitPrompt,
+	onDraft: persistDraft,
+	onAutoChange: syncAutoButton,
 });
 
 /** @type {FlowSessionInfo | undefined} */
 let session;
+
+/** @type {string} */
+let draft = "";
 
 /** @type {number} */
 let revision = -1;
@@ -53,6 +61,10 @@ const client = new FlowClient(socketUrl(), {
 				revision = message.revision;
 				session = message.session;
 				store.replace(message.graph);
+				if (draft.length === 0) {
+					draft = message.session.draft;
+					dom.emptyPromptInput.value = draft;
+				}
 				break;
 			case "patch":
 				if (message.revision <= revision) {
@@ -78,14 +90,36 @@ dom.fit.addEventListener("click", () => canvas.fit());
 dom.zoomIn.addEventListener("click", () => canvas.zoomBy(1.2));
 dom.zoomOut.addEventListener("click", () => canvas.zoomBy(1 / 1.2));
 dom.inspectorClose.addEventListener("click", () => canvas.select(undefined));
-dom.follow.classList.toggle("on", canvas.follow);
-dom.follow.addEventListener("click", () => {
-	canvas.follow = !canvas.follow;
-	dom.follow.classList.toggle("on", canvas.follow);
+syncAutoButton(canvas.auto);
+dom.auto.addEventListener("click", () => {
+	canvas.auto = !canvas.auto;
+});
+dom.emptyPrompt.addEventListener("submit", (event) => {
+	event.preventDefault();
+	submitPrompt(dom.emptyPromptInput.value, session?.busy ? "followUp" : undefined);
+});
+dom.emptyPromptInput.addEventListener("input", () => persistDraft(dom.emptyPromptInput.value));
+dom.emptyPromptInput.addEventListener("keydown", (event) => {
+	if (event.key !== "Enter" || event.shiftKey) {
+		return;
+	}
+
+	event.preventDefault();
+	if ((event.metaKey || event.ctrlKey) && session?.busy) {
+		submitPrompt(dom.emptyPromptInput.value, "steer");
+		return;
+	}
+
+	dom.emptyPrompt.requestSubmit();
 });
 
 window.addEventListener("keydown", (event) => {
-	if (event.target instanceof HTMLInputElement || event.metaKey || event.ctrlKey) {
+	if (
+		event.target instanceof HTMLInputElement ||
+		event.target instanceof HTMLTextAreaElement ||
+		event.metaKey ||
+		event.ctrlKey
+	) {
 		return;
 	}
 
@@ -113,7 +147,39 @@ client.connect();
 
 /** Redraw the canvas from the current store contents. */
 function draw() {
-	canvas.render(store.nodes, store.edges, store.pinned);
+	canvas.render(store.nodes, store.edges, store.pinned, { draft, busy: Boolean(session?.busy) });
+}
+
+/**
+ * Submit a prompt from the graph editor.
+ * @param {string} text Prompt text.
+ * @param {import("./protocol.js").FlowDeliverAs} [deliverAs] Delivery mode while the agent is busy.
+ */
+function submitPrompt(text, deliverAs) {
+	if (text.trim().length === 0) {
+		return;
+	}
+
+	client.send({ type: "prompt", text, deliverAs });
+	draft = "";
+	dom.emptyPromptInput.value = "";
+}
+
+/**
+ * Persist draft text locally and on the extension.
+ * @param {string} text Draft prompt.
+ */
+function persistDraft(text) {
+	draft = text;
+	client.send({ type: "draft", text });
+}
+
+/**
+ * Mirror Auto mode onto the toolbar toggle.
+ * @param {boolean} enabled Whether Auto is on.
+ */
+function syncAutoButton(enabled) {
+	dom.auto.classList.toggle("on", enabled);
 }
 
 /** Write session metadata into the toolbar. */

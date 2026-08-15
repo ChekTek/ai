@@ -12,7 +12,7 @@ import {
 	toolCallsOf,
 	truncate,
 } from "./messages.ts";
-import type { FlowEdge, FlowGraph, FlowNode, FlowNodeStatus, FlowSessionInfo } from "./protocol.ts";
+import type { FlowEdge, FlowGraph, FlowNode, FlowNodeStatus, FlowQueuedPrompt, FlowSessionInfo } from "./protocol.ts";
 
 /** Maximum characters kept for the inspector panel body of a node. */
 const DETAIL_LIMIT = 1200;
@@ -69,6 +69,7 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 	const toolNodes = new Map<string, FlowNode>();
 	const committedMessageKeys = new Set<string>();
 	const committedToolCallIds = new Set<string>();
+	const userTexts = new Set<string>();
 	const activeIds = collectActiveBranchIds(session);
 	const leafId = session.getLeafId();
 	const childrenByParent = groupByParent(entries);
@@ -90,6 +91,9 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 
 		if (entry.type === "message") {
 			committedMessageKeys.add(messageKey(entry.message));
+			if (entry.message.role === "user") {
+				userTexts.add(textOf(entry.message.content).trim());
+			}
 		}
 
 		if (entry.type === "message" && entry.message.role === "toolResult") {
@@ -132,7 +136,14 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 		nodes.push(node);
 		edges.push(...connectToAnchor(node, tipAnchor));
 		tipAnchor = attachToolBranches(node, liveMessage.message, nodes, edges, toolNodes, live);
+		if (liveMessage.message.role === "user") {
+			userTexts.add(textOf(liveMessage.message.content).trim());
+		}
 	}
+
+	live.settleQueued(userTexts);
+	appendQueuedNodes(nodes, edges, live.queued, tipAnchor);
+	markPromptHost(nodes);
 
 	return {
 		session: describeSession(ctx, live),
@@ -207,6 +218,8 @@ function describeSession(ctx: ExtensionContext, live: LiveState): FlowSessionInf
 		model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 		leafId: session.getLeafId(),
 		busy: live.busy,
+		draft: live.draft,
+		queued: [...live.queued],
 	};
 }
 
@@ -302,6 +315,72 @@ function attachToolBranches(
 	});
 
 	return { nodeId: node.id, depth: node.depth + 2, rejoinFrom };
+}
+
+/**
+ * Attach queued graph submissions as distinct cards on the live tip.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ * @param queued Prompts waiting for Pi to accept them.
+ * @param anchor Live tip of the active branch.
+ */
+function appendQueuedNodes(
+	nodes: FlowNode[],
+	edges: FlowEdge[],
+	queued: readonly FlowQueuedPrompt[],
+	anchor: Anchor,
+): void {
+	let parentId = anchor.nodeId;
+	let depth = anchor.depth;
+	for (const item of queued) {
+		const node: FlowNode = {
+			id: item.id,
+			kind: "queued",
+			depth,
+			layoutParentId: parentId,
+			lane: null,
+			laneCount: null,
+			title: item.deliverAs === "steer" ? "Queued steering" : "Queued follow-up",
+			preview: preview(item.text),
+			detail: truncate(item.text, DETAIL_LIMIT),
+			status: "running",
+			onActiveBranch: true,
+			badges: [item.deliverAs],
+		};
+		nodes.push(node);
+		if (parentId) {
+			edges.push({
+				id: `${parentId}->${node.id}`,
+				source: parentId,
+				target: node.id,
+				kind: "flow",
+				onActiveBranch: true,
+			});
+		}
+
+		parentId = node.id;
+		depth += 1;
+	}
+}
+
+/**
+ * Put the prompt editor on the latest active main-flow node.
+ * @param nodes Current nodes.
+ */
+function markPromptHost(nodes: FlowNode[]): void {
+	for (let index = nodes.length - 1; index >= 0; index -= 1) {
+		const node = nodes[index];
+		if (!node?.onActiveBranch || node.lane !== null) {
+			continue;
+		}
+
+		if (node.kind === "tool" || node.kind === "queued") {
+			continue;
+		}
+
+		node.promptHost = true;
+		return;
+	}
 }
 
 /**

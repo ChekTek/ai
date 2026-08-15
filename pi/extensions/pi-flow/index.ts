@@ -13,7 +13,7 @@ import { getProcessState } from "./src/process-state.ts";
  * @param pi Extension API supplied by Pi.
  */
 export default function piFlowExtension(pi: ExtensionAPI): void {
-	const service = new FlowService();
+	const service = new FlowService(pi);
 
 	pi.registerCommand("flow", {
 		description: "Open or focus the pi-flow conversation graph for this session",

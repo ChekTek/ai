@@ -33,6 +33,8 @@ export interface FlowServerOptions {
 	onConnection: (socket: WebSocket) => void;
 	/** Called when a browser asks for a fresh snapshot. */
 	onResync: (socket: WebSocket) => void;
+	/** Called for every other understood client message. */
+	onClientMessage: (message: FlowClientMessage) => void;
 }
 
 /**
@@ -223,9 +225,16 @@ export class FlowServer {
 		socket.on("error", () => this.#sockets.delete(socket));
 		socket.on("message", (raw) => {
 			const message = parseClientMessage(raw.toString());
-			if (message?.type === "resync") {
-				this.#options.onResync(socket);
+			if (!message) {
+				return;
 			}
+
+			if (message.type === "resync") {
+				this.#options.onResync(socket);
+				return;
+			}
+
+			this.#options.onClientMessage(message);
 		});
 
 		this.#options.onConnection(socket);
@@ -336,12 +345,35 @@ function readCookie(header: string | undefined, name: string): string | undefine
 function parseClientMessage(raw: string): FlowClientMessage | undefined {
 	try {
 		const parsed: unknown = JSON.parse(raw);
-		if (typeof parsed === "object" && parsed !== null && (parsed as { type?: unknown }).type === "resync") {
-			return { type: "resync" };
+		if (typeof parsed !== "object" || parsed === null) {
+			return undefined;
+		}
+
+		const type = (parsed as { type?: unknown }).type;
+		switch (type) {
+			case "resync":
+				return { type: "resync" };
+			case "draft": {
+				const text = (parsed as { text?: unknown }).text;
+				return typeof text === "string" ? { type: "draft", text } : undefined;
+			}
+			case "prompt": {
+				const text = (parsed as { text?: unknown }).text;
+				const deliverAs = (parsed as { deliverAs?: unknown }).deliverAs;
+				if (typeof text !== "string") {
+					return undefined;
+				}
+
+				if (deliverAs === "steer" || deliverAs === "followUp") {
+					return { type: "prompt", text, deliverAs };
+				}
+
+				return { type: "prompt", text };
+			}
+			default:
+				return undefined;
 		}
 	} catch {
 		return undefined;
 	}
-
-	return undefined;
 }

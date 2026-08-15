@@ -247,19 +247,32 @@ starting another server.
 /flow stop      close the canvas and stop the server
 ```
 
-The canvas is read-only. It reconstructs the existing session tree on open, then
-streams user and assistant messages, tool-call lifecycle, and turn state as they
-happen. Each assistant message with tool calls fans out into one branch per call
-so parallel tools sit side by side, and every branch rejoins whatever follows on
-the spine. Cards show live status (streaming, running, success, error, aborted);
-entries that are not on the active branch are dimmed.
+The canvas reconstructs the existing session tree on open, then streams user and
+assistant messages, tool-call lifecycle, and turn state as they happen. Each
+assistant message with tool calls fans out into one branch per call so parallel
+tools sit side by side, and every branch rejoins whatever follows on the spine.
+Cards show live status (streaming, running, success, error, aborted); entries
+that are not on the active branch are dimmed.
+
+The latest active main-flow node hosts an embedded prompt editor. Submitting
+from the graph uses `pi.sendUserMessage()` with prompt-template expansion, so
+slash commands and skills behave as they do in Pi. While the agent is busy,
+Enter queues a follow-up and ⌘Enter steers; queued prompts appear as distinct
+cards until Pi accepts them. Draft text survives ordinary graph updates and
+browser reconnects.
+
+Auto camera mode is on by default. It animates toward the latest relevant
+activity, keeps the latest main node near the centre, and keeps a handful of
+nearby branches in view when space allows. Running branch work is followed
+temporarily, then the camera returns to the main thread. Panning, zooming, or
+dragging a node turns Auto off; the Auto control restores it. Dragged cards stay
+pinned so incremental layout does not move them.
 
 Interaction is pan (drag the background or scroll), zoom (wheel, `+`/`-`, or the
 toolbar), node drag, click to select and inspect, `F` to fit the graph, and `Esc`
-to clear the selection. Follow mode keeps the newest activity in view. Layout is
-incremental: rows come from conversation depth and columns are packed so
-subtrees never collide, which keeps existing cards in place as the conversation
-grows.
+to clear the selection. Layout is incremental: rows come from conversation depth
+and columns are packed so subtrees never collide, which keeps existing cards in
+place as the conversation grows.
 
 The server binds to `127.0.0.1` only, rejects requests whose `Host` header is not
 a loopback address, and requires a per-process random token supplied in the URL
