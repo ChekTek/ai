@@ -1,3 +1,4 @@
+import { ContextTracker } from "./context-tracker.ts";
 import type { FlowAgentMessage } from "./messages.ts";
 import type { FlowDeliverAs, FlowQueuedPrompt } from "./protocol.ts";
 
@@ -51,6 +52,7 @@ export class LiveState {
 	readonly #messages = new Map<string, LiveMessage>();
 	readonly #tools = new Map<string, LiveToolExecution>();
 	readonly #queued: FlowQueuedPrompt[] = [];
+	readonly #context = new ContextTracker();
 	#busy = false;
 	#draft = "";
 	#queueSeq = 0;
@@ -76,6 +78,11 @@ export class LiveState {
 	/** Graph-submitted prompts that have not yet appeared as session entries. */
 	public get queued(): readonly FlowQueuedPrompt[] {
 		return this.#queued;
+	}
+
+	/** Inspectable context snapshots for the current session. */
+	public get context(): ContextTracker {
+		return this.#context;
 	}
 
 	/** Live messages in arrival order. */
@@ -206,5 +213,6 @@ export class LiveState {
 		this.#busy = false;
 		this.#draft = "";
 		this.#queueSeq = 0;
+		this.#context.reset();
 	}
 }

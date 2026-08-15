@@ -6,7 +6,7 @@
  */
 
 /**
- * @typedef {"user" | "assistant" | "tool" | "bash" | "compaction" | "branchSummary" | "custom" | "queued"} FlowNodeKind
+ * @typedef {"user" | "assistant" | "tool" | "bash" | "compaction" | "branchSummary" | "custom" | "queued" | "context" | "skill"} FlowNodeKind
  */
 
 /**
@@ -35,6 +35,8 @@
  * @property {boolean} onActiveBranch Whether the node sits on the active branch.
  * @property {string[]} [badges] Small badges rendered on the card.
  * @property {boolean} [promptHost] Whether this card hosts the active prompt editor.
+ * @property {boolean} [expanded] Whether an expandable context card is showing detail.
+ * @property {boolean} [summarized] Whether compaction replaced this node with a summary.
  */
 
 /**
@@ -63,6 +65,7 @@
  * @property {boolean} busy Whether the agent is currently working.
  * @property {string} draft Draft prompt text preserved across reconnects.
  * @property {FlowQueuedPrompt[]} queued Graph-submitted prompts not yet in the session.
+ * @property {{ tokens: number | null, percent: number | null, contextWindow: number }} [contextUsage] Current context window usage.
  */
 
 /**
@@ -91,7 +94,8 @@
 /**
  * @typedef {{ type: "resync" }
  *   | { type: "draft", text: string }
- *   | { type: "prompt", text: string, deliverAs?: FlowDeliverAs }} FlowClientMessage
+ *   | { type: "prompt", text: string, deliverAs?: FlowDeliverAs }
+ *   | { type: "collapse", id: string, expanded: boolean }} FlowClientMessage
  */
 
 /**

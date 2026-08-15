@@ -249,6 +249,21 @@ button.toggle.on {
 	--accent: var(--context);
 }
 
+.flow-node.kind-context,
+.flow-node.kind-skill {
+	--accent: var(--context);
+}
+
+.flow-node.summarized {
+	opacity: 0.38;
+}
+
+.node-expand {
+	margin-top: 8px;
+	padding: 3px 8px;
+	font-size: 11px;
+}
+
 .flow-node.status-error {
 	--accent: var(--error);
 }

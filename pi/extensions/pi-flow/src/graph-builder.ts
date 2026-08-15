@@ -1,5 +1,6 @@
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 
+import type { ContextSnapshot } from "./context-tracker.ts";
 import { type LiveState, messageKey } from "./live-state.ts";
 import type { FlowAgentMessage, FlowAssistantMessage, FlowToolResultMessage } from "./messages.ts";
 import {
@@ -143,6 +144,9 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 
 	live.settleQueued(userTexts);
 	appendQueuedNodes(nodes, edges, live.queued, tipAnchor);
+	appendContextNodes(nodes, edges, live, tipAnchor);
+	markSummarized(nodes, session);
+	labelCompactions(nodes, live);
 	markPromptHost(nodes);
 
 	return {
@@ -220,6 +224,7 @@ function describeSession(ctx: ExtensionContext, live: LiveState): FlowSessionInf
 		busy: live.busy,
 		draft: live.draft,
 		queued: [...live.queued],
+		contextUsage: ctx.getContextUsage(),
 	};
 }
 
@@ -364,6 +369,169 @@ function appendQueuedNodes(
 }
 
 /**
+ * Attach inspectable context snapshots and explicit skill nodes as side branches.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ * @param live Live agent and context state.
+ * @param anchor Live tip used when no user node is available.
+ */
+function appendContextNodes(
+	nodes: FlowNode[],
+	edges: FlowEdge[],
+	live: LiveState,
+	anchor: Anchor,
+): void {
+	const host =
+		[...nodes].reverse().find((node) => node.onActiveBranch && node.kind === "user") ??
+		nodes.find((node) => node.id === anchor.nodeId);
+	const parentId = host?.id ?? anchor.nodeId;
+	if (!parentId) {
+		return;
+	}
+
+	const snapshots = live.context.snapshots;
+	snapshots.forEach((snapshot, index) => {
+		const expanded = live.context.expanded.has(snapshot.id);
+		const diff = snapshot.diff;
+		const added = diff?.added.length ?? 0;
+		const removed = diff?.removed.length ?? 0;
+		const retained = diff?.retained.length ?? snapshot.items.length;
+		const usage =
+			snapshot.usage?.percent !== null && snapshot.usage?.percent !== undefined
+				? `${Math.round(snapshot.usage.percent)}%`
+				: snapshot.usage?.tokens !== null && snapshot.usage?.tokens !== undefined
+					? `${snapshot.usage.tokens.toLocaleString()} tok`
+					: undefined;
+		const previewText = expanded
+			? snapshot.items.map((item) => `${item.label} (${item.provenance})`).join("\n")
+			: `${added} added · ${removed} removed · ${retained} retained`;
+		const node: FlowNode = {
+			id: snapshot.id,
+			kind: "context",
+			depth: (host?.depth ?? anchor.depth) + 1,
+			layoutParentId: parentId,
+			lane: index,
+			laneCount: snapshots.length + snapshot.explicitSkills.length,
+			title: `Context ${snapshot.index}`,
+			subtitle: [snapshot.model, usage].filter(Boolean).join(" · ") || undefined,
+			preview: preview(previewText, expanded ? 400 : 220),
+			detail: truncate(formatSnapshotDetail(snapshot), DETAIL_LIMIT),
+			status: "success",
+			onActiveBranch: true,
+			badges: usage ? [usage, "collapsed"] : ["collapsed"],
+			expanded,
+		};
+		if (expanded) {
+			node.badges = (node.badges ?? []).map((badge) => (badge === "collapsed" ? "expanded" : badge));
+		}
+
+		nodes.push(node);
+		edges.push({
+			id: `${parentId}->${node.id}`,
+			source: parentId,
+			target: node.id,
+			kind: "branch",
+			onActiveBranch: true,
+		});
+
+		snapshot.explicitSkills.forEach((name, skillIndex) => {
+			const skillId = `${snapshot.id}:skill:${name}`;
+			const skill: FlowNode = {
+				id: skillId,
+				kind: "skill",
+				depth: node.depth + 1,
+				layoutParentId: node.id,
+				lane: skillIndex,
+				laneCount: snapshot.explicitSkills.length,
+				title: `/skill:${name}`,
+				subtitle: "explicit invocation",
+				preview: `Attributed to /skill:${name}`,
+				status: "success",
+				onActiveBranch: true,
+				badges: ["explicit"],
+			};
+			nodes.push(skill);
+			edges.push({
+				id: `${node.id}->${skill.id}`,
+				source: node.id,
+				target: skill.id,
+				kind: "branch",
+				onActiveBranch: true,
+			});
+		});
+	});
+}
+
+/**
+ * Render a snapshot for the inspector without dumping full message bodies.
+ * @param snapshot Context snapshot.
+ * @returns Inspector text.
+ */
+function formatSnapshotDetail(snapshot: ContextSnapshot): string {
+	const lines = [`Model call ${snapshot.index}`, snapshot.model ? `Model: ${snapshot.model}` : undefined];
+	if (snapshot.usage) {
+		lines.push(
+			`Usage: ${snapshot.usage.tokens ?? "unknown"} / ${snapshot.usage.contextWindow} (${snapshot.usage.percent ?? "?"}%)`,
+		);
+	}
+
+	if (snapshot.diff) {
+		lines.push(`Added: ${snapshot.diff.added.join(", ") || "none"}`);
+		lines.push(`Removed: ${snapshot.diff.removed.join(", ") || "none"}`);
+		lines.push(`Retained: ${snapshot.diff.retained.length} items`);
+	}
+
+	lines.push("Items:");
+	for (const item of snapshot.items) {
+		lines.push(`- ${item.kind} ${item.label} [${item.provenance}]`);
+	}
+
+	return lines.filter(Boolean).join("\n");
+}
+
+/**
+ * Mark nodes that compaction replaced with a summary.
+ * @param nodes Current nodes.
+ * @param session Active session manager.
+ */
+function markSummarized(nodes: FlowNode[], session: ExtensionContext["sessionManager"]): void {
+	let kept: Set<string>;
+	try {
+		kept = new Set(session.buildContextEntries().map((entry) => entry.id));
+	} catch {
+		return;
+	}
+
+	for (const node of nodes) {
+		if (node.entryId && !kept.has(node.entryId) && node.kind !== "compaction" && node.kind !== "branchSummary") {
+			node.summarized = true;
+			node.badges = [...(node.badges ?? []), "summarized"];
+		}
+	}
+}
+
+/**
+ * Apply recorded compaction reasons to funnel nodes.
+ * @param nodes Current nodes.
+ * @param live Live context tracker.
+ */
+function labelCompactions(nodes: FlowNode[], live: LiveState): void {
+	for (const node of nodes) {
+		if (node.kind !== "compaction" || !node.entryId) {
+			continue;
+		}
+
+		const reason = live.context.compactionReason(node.entryId);
+		if (!reason) {
+			continue;
+		}
+
+		node.title = reason === "manual" ? "Manual compaction" : reason === "overflow" ? "Overflow compaction" : "Auto compaction";
+		node.badges = [reason, "funnel"];
+	}
+}
+
+/**
  * Put the prompt editor on the latest active main-flow node.
  * @param nodes Current nodes.
  */
@@ -374,7 +542,7 @@ function markPromptHost(nodes: FlowNode[]): void {
 			continue;
 		}
 
-		if (node.kind === "tool" || node.kind === "queued") {
+		if (node.kind === "tool" || node.kind === "queued" || node.kind === "context" || node.kind === "skill") {
 			continue;
 		}
 
@@ -484,10 +652,14 @@ function createEntryNode(entry: SessionEntry, anchor: Anchor, onActiveBranch: bo
 				lane: null,
 				laneCount: null,
 				title: "Compaction",
-				subtitle: `${entry.tokensBefore.toLocaleString()} tokens before`,
+				subtitle: `${entry.tokensBefore.toLocaleString()} tokens before · kept ${entry.firstKeptEntryId.slice(0, 8)}`,
 				preview: preview(entry.summary),
-				detail: truncate(entry.summary, DETAIL_LIMIT),
+				detail: truncate(
+					`Summarized history:\n${entry.summary}\n\nRecent context retained from entry ${entry.firstKeptEntryId}.`,
+					DETAIL_LIMIT,
+				),
 				status: "success",
+				badges: ["funnel"],
 			};
 		case "branch_summary":
 			return {

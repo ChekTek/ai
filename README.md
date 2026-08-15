@@ -268,6 +268,16 @@ temporarily, then the camera returns to the main thread. Panning, zooming, or
 dragging a node turns Auto off; the Auto control restores it. Dragged cards stay
 pinned so incremental layout does not move them.
 
+Each model call adds a compact context snapshot branch. Consecutive snapshots
+are diffed into added, removed, and retained items. Loaded context files,
+selected tools, structured system-prompt inputs, and skills come from Pi's
+`before_agent_start` options. Explicit `/skill:name` input is attributed;
+unattributed skill context is labelled inferred. Context usage and the active
+model appear on the snapshot and in the toolbar. Cards stay collapsed by
+default; Expand reveals item lists without logging full prompt bodies.
+Compaction is a funnel node that distinguishes summarized history from the
+recent entries Pi retained, including when `/flow` opens an existing session.
+
 Interaction is pan (drag the background or scroll), zoom (wheel, `+`/`-`, or the
 toolbar), node drag, click to select and inspect, `F` to fit the graph, and `Esc`
 to clear the selection. Layout is incremental: rows come from conversation depth

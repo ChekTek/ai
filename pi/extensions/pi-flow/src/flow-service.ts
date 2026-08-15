@@ -151,6 +151,10 @@ export class FlowService {
 			case "prompt":
 				this.#submitPrompt(ctx, message.text, message.deliverAs);
 				return;
+			case "collapse":
+				this.#live.context.setExpanded(message.id, message.expanded);
+				this.publish(ctx);
+				return;
 		}
 	}
 

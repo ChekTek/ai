@@ -555,7 +555,7 @@ export class FlowCanvas {
 				return;
 			}
 
-			if (event.target instanceof Element && event.target.closest(".node-prompt")) {
+			if (event.target instanceof Element && event.target.closest(".node-prompt, .node-expand")) {
 				return;
 			}
 
@@ -654,6 +654,7 @@ function createCard(id) {
 		'<div class="node-subtitle"></div>' +
 		'<div class="node-preview"></div>' +
 		'<div class="node-badges"></div>' +
+		'<button type="button" class="node-expand" hidden>Expand</button>' +
 		'<form class="node-prompt" hidden>' +
 		'<textarea class="node-prompt-input" rows="3" placeholder="Message Pi…"></textarea>' +
 		'<div class="node-prompt-actions">' +
@@ -680,6 +681,7 @@ function updateCard(card, node, selected, draft, busy) {
 		`status-${node.status}`,
 		node.onActiveBranch ? "" : "off-branch",
 		node.promptHost ? "prompt-host" : "",
+		node.summarized ? "summarized" : "",
 		selected ? "selected" : "",
 	]
 		.filter(Boolean)
@@ -703,6 +705,14 @@ function updateCard(card, node, selected, draft, busy) {
 
 	if (send instanceof HTMLButtonElement) {
 		send.textContent = busy ? "Queue" : "Send";
+	}
+
+	const expand = card.querySelector(".node-expand");
+	if (expand instanceof HTMLButtonElement) {
+		const expandable = node.kind === "context";
+		expand.hidden = !expandable;
+		expand.textContent = node.expanded ? "Collapse" : "Expand";
+		expand.dataset.expanded = node.expanded ? "true" : "false";
 	}
 
 	const badges = card.querySelector(".node-badges");

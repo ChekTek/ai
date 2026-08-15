@@ -21,6 +21,8 @@ const CARD_HEIGHTS = {
 	branchSummary: 104,
 	custom: 104,
 	queued: 112,
+	context: 112,
+	skill: 96,
 };
 
 /** Extra height reserved on the card that hosts the prompt editor. */

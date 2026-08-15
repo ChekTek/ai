@@ -112,6 +112,22 @@ dom.emptyPromptInput.addEventListener("keydown", (event) => {
 
 	dom.emptyPrompt.requestSubmit();
 });
+dom.nodes.addEventListener("click", (event) => {
+	const button = event.target instanceof Element ? event.target.closest(".node-expand") : null;
+	if (!(button instanceof HTMLButtonElement)) {
+		return;
+	}
+
+	event.preventDefault();
+	event.stopPropagation();
+	const card = button.closest(".flow-node");
+	const id = card instanceof HTMLElement ? card.dataset.id : undefined;
+	if (!id) {
+		return;
+	}
+
+	client.send({ type: "collapse", id, expanded: button.dataset.expanded !== "true" });
+});
 
 window.addEventListener("keydown", (event) => {
 	if (
@@ -190,8 +206,36 @@ function showSession() {
 
 	renderConnection();
 	dom.sessionName.textContent = session.name ?? "Untitled session";
-	dom.sessionMeta.textContent = [session.cwd, session.model, session.sessionId.slice(0, 8)].filter(Boolean).join(" · ");
+	dom.sessionMeta.textContent = [
+		session.cwd,
+		session.model,
+		formatUsage(session.contextUsage),
+		session.sessionId.slice(0, 8),
+	]
+		.filter(Boolean)
+		.join(" · ");
 	document.title = session.name ? `${session.name} · pi-flow` : "pi-flow";
+}
+
+/**
+ * Format context usage for the toolbar.
+ * @param {FlowSessionInfo["contextUsage"]} usage Usage from Pi, when known.
+ * @returns {string | undefined} Short usage label.
+ */
+function formatUsage(usage) {
+	if (!usage) {
+		return undefined;
+	}
+
+	if (usage.percent !== null) {
+		return `${Math.round(usage.percent)}% ctx`;
+	}
+
+	if (usage.tokens !== null) {
+		return `${usage.tokens.toLocaleString()} tok`;
+	}
+
+	return `${usage.contextWindow.toLocaleString()} window`;
 }
 
 /**
