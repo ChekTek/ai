@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import type { WebSocket } from "ws";
 
@@ -8,6 +8,7 @@ import { buildSnapshot } from "./graph-builder.ts";
 import { computeDelta, isEmptyDelta } from "./graph-delta.ts";
 import { LiveState } from "./live-state.ts";
 import { getProcessState } from "./process-state.ts";
+import { textOf } from "./messages.ts";
 import type { FlowClientMessage, FlowDeliverAs, FlowGraph, FlowSessionInfo } from "./protocol.ts";
 
 /** Delay used to batch bursts of streaming events into a single broadcast. */
@@ -32,6 +33,7 @@ export class FlowService {
 	#session: FlowSessionInfo | undefined;
 	#revision = 0;
 	#latestCtx: ExtensionContext | undefined;
+	#commandCtx: ExtensionCommandContext | undefined;
 
 	/**
 	 * Create the session-scoped canvas service.
@@ -144,6 +146,14 @@ export class FlowService {
 	}
 
 	/**
+	 * Remember a command context so tree navigation can call `navigateTree`.
+	 * @param ctx Command context from `/flow`.
+	 */
+	public setCommandContext(ctx: ExtensionCommandContext): void {
+		this.#commandCtx = ctx;
+	}
+
+	/**
 	 * Handle a message from a connected browser.
 	 * @param ctx Extension context for the active session.
 	 * @param message Client message.
@@ -164,6 +174,13 @@ export class FlowService {
 				} else {
 					this.#live.setCollapsed(message.id, !message.expanded);
 				}
+				this.publish(ctx);
+				return;
+			case "navigate":
+				this.#navigate(message.entryId, message.mode).catch((error: unknown) => notifyError(ctx, error));
+				return;
+			case "label":
+				this.#pi.setLabel(message.entryId, message.label);
 				this.publish(ctx);
 				return;
 		}
@@ -301,6 +318,67 @@ export class FlowService {
 			}
 		} catch (error) {
 			notifyError(ctx, error);
+			return;
+		}
+
+		this.publish(ctx);
+	}
+
+	/**
+	 * Navigate Pi's session tree from a graph selection using a command context.
+	 * @param entryId Selected session entry.
+	 * @param mode Whether to restore a user prompt or continue from the entry.
+	 */
+	async #navigate(entryId: string, mode: "continue" | "edit"): Promise<void> {
+		const ctx = this.#commandCtx;
+		if (!ctx) {
+			if (this.#latestCtx?.hasUI) {
+				this.#latestCtx.ui.notify("Run /flow in Pi to enable graph navigation.", "warning");
+			}
+
+			return;
+		}
+
+		const target = mode === "edit" ? (ctx.sessionManager.getEntry(entryId)?.parentId ?? entryId) : entryId;
+		const confirmed = await ctx.ui.confirm(
+			"Navigate session tree?",
+			mode === "edit"
+				? "This restores the selected prompt for editing and creates a new branch when you submit."
+				: "This moves the active leaf to the selected entry.",
+		);
+		if (!confirmed) {
+			this.publish(ctx);
+			return;
+		}
+
+		const summaryChoice = await ctx.ui.select("Branch summary", ["No summary", "Default summary", "Custom summary"]);
+		if (!summaryChoice) {
+			this.publish(ctx);
+			return;
+		}
+
+		let customInstructions: string | undefined;
+		if (summaryChoice === "Custom summary") {
+			customInstructions = await ctx.ui.input("Custom summary instructions");
+			if (customInstructions === undefined) {
+				this.publish(ctx);
+				return;
+			}
+		}
+
+		if (mode === "edit") {
+			const entry = ctx.sessionManager.getEntry(entryId);
+			if (entry?.type === "message" && entry.message.role === "user") {
+				this.#live.draft = textOf(entry.message.content);
+			}
+		}
+
+		const result = await ctx.navigateTree(target, {
+			summarize: summaryChoice !== "No summary",
+			customInstructions,
+		});
+		if (result.cancelled) {
+			this.publish(ctx);
 			return;
 		}
 

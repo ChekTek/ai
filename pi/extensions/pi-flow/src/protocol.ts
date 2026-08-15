@@ -62,6 +62,14 @@ export interface FlowNode {
 	expanded?: boolean;
 	/** Session entries this compaction summarised, when known. */
 	summarized?: boolean;
+	/** Whether this node is the current session leaf. */
+	isLeaf?: boolean;
+	/** Persistent bookmark label. */
+	label?: string;
+	/** Parent session entry id, when this node is persisted. */
+	parentEntryId?: string;
+	/** Original user prompt text, when this node is a user message. */
+	promptText?: string;
 }
 
 /** A connection between two cards. */
@@ -158,23 +166,50 @@ export type FlowServerMessage =
 			reason: string;
 	  };
 
+/** Expand or collapse a context card. */
+export interface FlowCollapseMessage {
+	type: "collapse";
+	id: string;
+	expanded: boolean;
+}
+
+/** Persist draft prompt text so reconnects can restore it. */
+export interface FlowDraftMessage {
+	type: "draft";
+	text: string;
+}
+
+/** Set or clear a persistent label on a session entry. */
+export interface FlowLabelMessage {
+	type: "label";
+	entryId: string;
+	label?: string;
+}
+
+/** Navigate Pi's session tree from a graph node. */
+export interface FlowNavigateMessage {
+	type: "navigate";
+	entryId: string;
+	mode: "continue" | "edit";
+}
+
+/** Submit a prompt from the graph editor. */
+export interface FlowPromptMessage {
+	type: "prompt";
+	text: string;
+	deliverAs?: FlowDeliverAs;
+}
+
+/** Ask for a fresh snapshot, for example after a dropped connection. */
+export interface FlowResyncMessage {
+	type: "resync";
+}
+
 /** Messages sent from the browser to the extension. */
 export type FlowClientMessage =
-	{
-			/** Ask for a fresh snapshot, for example after a dropped connection. */
-			type: "resync";
-	  } | {
-			/** Expand or collapse a context card. */
-			type: "collapse";
-			id: string;
-			expanded: boolean;
-	  } | {
-			/** Persist draft prompt text so reconnects can restore it. */
-			type: "draft";
-			text: string;
-	  } | {
-			/** Submit a prompt from the graph editor. */
-			type: "prompt";
-			text: string;
-			deliverAs?: FlowDeliverAs;
-	  };
+	| FlowCollapseMessage
+	| FlowDraftMessage
+	| FlowLabelMessage
+	| FlowNavigateMessage
+	| FlowPromptMessage
+	| FlowResyncMessage;

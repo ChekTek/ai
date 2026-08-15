@@ -285,6 +285,14 @@ collapsed. Other extensions can report spawned work on `pi.events` channel
 `pi-flow:spawn:v1` with `{ version: 1, parentId, taskId, state, label, type,
 messages }`. Shell tools without those events stay opaque process cards.
 
+The graph marks the active path, the current leaf, and historical branches.
+Selecting a historical user message can navigate to its parent, restore the
+prompt in the graph editor, and submit a new persistent Pi branch. Selecting a
+non-user node continues from that entry. Navigation uses `ctx.navigateTree()`
+from the last `/flow` command context, asks Pi for a branch-summary choice, and
+resyncs after completion or cancellation. Node labels are stored with
+`pi.setLabel()` and survive reloads.
+
 Interaction is pan (drag the background or scroll), zoom (wheel, `+`/`-`, or the
 toolbar), node drag, click to select and inspect, `F` to fit the graph, and `Esc`
 to clear the selection. Layout is incremental: rows come from conversation depth
