@@ -40,6 +40,8 @@ interface NodeBase {
 	layoutParentId: string | null;
 	/** Session entry id, when the node is persisted. */
 	entryId?: string;
+	/** Parent session entry id, when persisted. */
+	parentEntryId?: string;
 	/** Whether the node sits on the active branch. */
 	onActiveBranch: boolean;
 	/** Unix milliseconds for the underlying message or entry. */
@@ -149,6 +151,7 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 	appendContextNodes(nodes, edges, live, tipAnchor);
 	markSummarized(nodes, session);
 	labelCompactions(nodes, live);
+	annotateEntries(nodes, session, leafId);
 	markPromptHost(nodes);
 
 	return {
@@ -704,6 +707,27 @@ function labelCompactions(nodes: FlowNode[], live: LiveState): void {
 }
 
 /**
+ * Attach session labels, leaf highlighting, and parent ids to persisted nodes.
+ * @param nodes Current nodes.
+ * @param session Active session manager.
+ * @param leafId Current leaf entry id.
+ */
+function annotateEntries(nodes: FlowNode[], session: ExtensionContext["sessionManager"], leafId: string | null): void {
+	for (const node of nodes) {
+		if (!node.entryId) {
+			continue;
+		}
+
+		node.isLeaf = node.entryId === leafId;
+		const label = session.getLabel(node.entryId);
+		if (label) {
+			node.label = label;
+			node.badges = [...(node.badges ?? []), label];
+		}
+	}
+}
+
+/**
  * Put the prompt editor on the latest active main-flow node.
  * @param nodes Current nodes.
  */
@@ -806,6 +830,7 @@ function createEntryNode(entry: SessionEntry, anchor: Anchor, onActiveBranch: bo
 		depth: anchor.depth,
 		layoutParentId: anchor.nodeId,
 		entryId: entry.id,
+		parentEntryId: entry.parentId ?? undefined,
 		onActiveBranch,
 		timestamp: Date.parse(entry.timestamp) || undefined,
 	};
@@ -884,6 +909,7 @@ function createMessageNode(base: NodeBase, message: FlowAgentMessage, streaming:
 				preview: preview(text),
 				detail: truncate(text, DETAIL_LIMIT),
 				status: "success",
+				promptText: text,
 				badges: images > 0 ? [`${images} image${images === 1 ? "" : "s"}`] : undefined,
 			};
 		}

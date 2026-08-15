@@ -17,6 +17,10 @@ const dom = {
 	inspectorSubtitle: requireElement("inspector-subtitle", HTMLElement),
 	inspectorBadges: requireElement("inspector-badges", HTMLElement),
 	inspectorBody: requireElement("inspector-body", HTMLElement),
+	inspectorActions: requireElement("inspector-actions", HTMLElement),
+	navEdit: requireElement("nav-edit", HTMLButtonElement),
+	navContinue: requireElement("nav-continue", HTMLButtonElement),
+	navLabel: requireElement("nav-label", HTMLInputElement),
 	sessionName: requireElement("session-name", HTMLElement),
 	sessionMeta: requireElement("session-meta", HTMLElement),
 	fit: requireElement("fit", HTMLButtonElement),
@@ -59,12 +63,8 @@ const client = new FlowClient(socketUrl(), {
 		switch (message.type) {
 			case "snapshot":
 				revision = message.revision;
-				session = message.session;
+				applySession(message.session);
 				store.replace(message.graph);
-				if (draft.length === 0) {
-					draft = message.session.draft;
-					dom.emptyPromptInput.value = draft;
-				}
 				break;
 			case "patch":
 				if (message.revision <= revision) {
@@ -72,7 +72,7 @@ const client = new FlowClient(socketUrl(), {
 				}
 
 				revision = message.revision;
-				session = message.session;
+				applySession(message.session);
 				store.apply(message.delta);
 				break;
 			case "closing":
@@ -128,6 +128,27 @@ dom.nodes.addEventListener("click", (event) => {
 
 	client.send({ type: "collapse", id, expanded: button.dataset.expanded !== "true" });
 });
+dom.navEdit.addEventListener("click", () => {
+	const entryId = dom.navEdit.dataset.entryId;
+	if (entryId) {
+		client.send({ type: "navigate", entryId, mode: "edit" });
+	}
+});
+dom.navContinue.addEventListener("click", () => {
+	const entryId = dom.navContinue.dataset.entryId;
+	if (entryId) {
+		client.send({ type: "navigate", entryId, mode: "continue" });
+	}
+});
+dom.navLabel.addEventListener("change", () => {
+	const entryId = dom.navLabel.dataset.entryId;
+	if (!entryId) {
+		return;
+	}
+
+	const label = dom.navLabel.value.trim();
+	client.send({ type: "label", entryId, label: label.length > 0 ? label : undefined });
+});
 
 window.addEventListener("keydown", (event) => {
 	if (
@@ -164,6 +185,19 @@ client.connect();
 /** Redraw the canvas from the current store contents. */
 function draw() {
 	canvas.render(store.nodes, store.edges, store.pinned, { draft, busy: Boolean(session?.busy) });
+}
+
+/**
+ * Apply session metadata and restore draft text when the editor is not focused.
+ * @param {FlowSessionInfo} next Session payload from the extension.
+ */
+function applySession(next) {
+	session = next;
+	const active = document.activeElement;
+	if (!(active instanceof HTMLTextAreaElement)) {
+		draft = next.draft;
+		dom.emptyPromptInput.value = draft;
+	}
 }
 
 /**
@@ -280,9 +314,16 @@ function showInspector(node) {
 	}
 
 	dom.inspector.hidden = false;
-	dom.inspectorTitle.textContent = node.title;
+	dom.inspectorTitle.textContent = node.label ? `${node.title} · ${node.label}` : node.title;
 	dom.inspectorSubtitle.textContent = node.subtitle ?? "";
 	dom.inspectorBody.textContent = node.detail ?? node.preview ?? "";
+	dom.inspectorActions.hidden = !node.entryId;
+	dom.navEdit.hidden = node.kind !== "user" || !node.entryId;
+	dom.navContinue.hidden = !node.entryId;
+	dom.navEdit.dataset.entryId = node.entryId ?? "";
+	dom.navContinue.dataset.entryId = node.entryId ?? "";
+	dom.navLabel.dataset.entryId = node.entryId ?? "";
+	dom.navLabel.value = node.label ?? "";
 
 	const badges = [node.status, ...(node.badges ?? [])];
 	if (node.timestamp) {

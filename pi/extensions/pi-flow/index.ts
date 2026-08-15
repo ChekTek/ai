@@ -146,6 +146,7 @@ async function handleCommand(service: FlowService, args: string, ctx: ExtensionC
 		}
 		default: {
 			try {
+				service.setCommandContext(ctx);
 				const url = await service.open(ctx);
 				service.publish(ctx);
 				notify(ctx, `pi-flow canvas: ${url}`, "info");

@@ -258,6 +258,12 @@ button.toggle.on {
 	opacity: 0.38;
 }
 
+.flow-node.leaf {
+	box-shadow:
+		0 0 0 1px var(--assistant),
+		0 10px 28px rgb(0 0 0 / 45%);
+}
+
 .node-expand {
 	margin-top: 8px;
 	padding: 3px 8px;
@@ -462,6 +468,30 @@ button.toggle.on {
 	gap: 4px;
 	flex-wrap: wrap;
 	margin: 10px 0;
+}
+
+.inspector-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 10px 0;
+}
+
+.inspector-label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	color: var(--text-dim);
+	font-size: 11px;
+}
+
+.inspector-label input {
+	background: var(--bg);
+	color: var(--text);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 6px 8px;
+	font: inherit;
 }
 
 .inspector-body {

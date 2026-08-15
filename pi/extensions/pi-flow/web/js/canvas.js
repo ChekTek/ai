@@ -682,6 +682,7 @@ function updateCard(card, node, selected, draft, busy) {
 		node.onActiveBranch ? "" : "off-branch",
 		node.promptHost ? "prompt-host" : "",
 		node.summarized ? "summarized" : "",
+		node.isLeaf ? "leaf" : "",
 		selected ? "selected" : "",
 	]
 		.filter(Boolean)

@@ -37,6 +37,10 @@
  * @property {boolean} [promptHost] Whether this card hosts the active prompt editor.
  * @property {boolean} [expanded] Whether an expandable context card is showing detail.
  * @property {boolean} [summarized] Whether compaction replaced this node with a summary.
+ * @property {boolean} [isLeaf] Whether this node is the current session leaf.
+ * @property {string} [label] Persistent bookmark label.
+ * @property {string} [parentEntryId] Parent session entry id.
+ * @property {string} [promptText] Original user prompt text.
  */
 
 /**
@@ -95,7 +99,9 @@
  * @typedef {{ type: "resync" }
  *   | { type: "draft", text: string }
  *   | { type: "prompt", text: string, deliverAs?: FlowDeliverAs }
- *   | { type: "collapse", id: string, expanded: boolean }} FlowClientMessage
+ *   | { type: "collapse", id: string, expanded: boolean }
+ *   | { type: "navigate", entryId: string, mode: "continue" | "edit" }
+ *   | { type: "label", entryId: string, label?: string }} FlowClientMessage
  */
 
 /**

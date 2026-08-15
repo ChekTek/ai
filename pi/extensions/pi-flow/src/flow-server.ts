@@ -375,6 +375,24 @@ function parseClientMessage(raw: string): FlowClientMessage | undefined {
 				const expanded = (parsed as { expanded?: unknown }).expanded;
 				return typeof id === "string" && typeof expanded === "boolean" ? { type: "collapse", id, expanded } : undefined;
 			}
+			case "navigate": {
+				const entryId = (parsed as { entryId?: unknown }).entryId;
+				const mode = (parsed as { mode?: unknown }).mode;
+				if (typeof entryId !== "string" || (mode !== "continue" && mode !== "edit")) {
+					return undefined;
+				}
+
+				return { type: "navigate", entryId, mode };
+			}
+			case "label": {
+				const entryId = (parsed as { entryId?: unknown }).entryId;
+				const label = (parsed as { label?: unknown }).label;
+				if (typeof entryId !== "string") {
+					return undefined;
+				}
+
+				return { type: "label", entryId, label: typeof label === "string" ? label : undefined };
+			}
 			default:
 				return undefined;
 		}
