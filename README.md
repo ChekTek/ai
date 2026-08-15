@@ -278,6 +278,13 @@ default; Expand reveals item lists without logging full prompt bodies.
 Compaction is a funnel node that distinguishes summarized history from the
 recent entries Pi retained, including when `/flow` opens an existing session.
 
+The supported `subagent` tool expands into live child branches for single,
+parallel, and chained modes, including nested messages from tool details.
+Completed children rejoin the parent tool result. Nested branches can be
+collapsed. Other extensions can report spawned work on `pi.events` channel
+`pi-flow:spawn:v1` with `{ version: 1, parentId, taskId, state, label, type,
+messages }`. Shell tools without those events stay opaque process cards.
+
 Interaction is pan (drag the background or scroll), zoom (wheel, `+`/`-`, or the
 toolbar), node drag, click to select and inspect, `F` to fit the graph, and `Esc`
 to clear the selection. Layout is incremental: rows come from conversation depth
