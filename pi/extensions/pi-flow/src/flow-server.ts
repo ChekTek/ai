@@ -370,6 +370,11 @@ function parseClientMessage(raw: string): FlowClientMessage | undefined {
 
 				return { type: "prompt", text };
 			}
+			case "collapse": {
+				const id = (parsed as { id?: unknown }).id;
+				const expanded = (parsed as { expanded?: unknown }).expanded;
+				return typeof id === "string" && typeof expanded === "boolean" ? { type: "collapse", id, expanded } : undefined;
+			}
 			default:
 				return undefined;
 		}

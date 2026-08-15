@@ -94,7 +94,20 @@ export default function piFlowExtension(pi: ExtensionAPI): void {
 
 	pi.on("turn_start", (_event, ctx) => service.schedule(ctx));
 	pi.on("turn_end", (_event, ctx) => service.schedule(ctx));
-	pi.on("session_compact", (_event, ctx) => service.publish(ctx));
+	pi.on("input", (event) => {
+		service.live.context.noteInput(event.text);
+	});
+	pi.on("before_agent_start", (event) => {
+		service.live.context.notePromptOptions(event.systemPromptOptions);
+	});
+	pi.on("context", (event, ctx) => {
+		service.live.context.capture(event.messages, ctx);
+		service.schedule(ctx);
+	});
+	pi.on("session_compact", (event, ctx) => {
+		service.live.context.noteCompaction(event.compactionEntry.id, event.reason);
+		service.publish(ctx);
+	});
 	pi.on("session_tree", (_event, ctx) => service.publish(ctx));
 	pi.on("session_info_changed", (_event, ctx) => service.publish(ctx));
 	pi.on("model_select", (_event, ctx) => service.publish(ctx));

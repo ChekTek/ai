@@ -11,8 +11,10 @@ export type FlowNodeKind =
 	| "bash"
 	| "branchSummary"
 	| "compaction"
+	| "context"
 	| "custom"
 	| "queued"
+	| "skill"
 	| "tool"
 	| "user";
 
@@ -56,6 +58,10 @@ export interface FlowNode {
 	badges?: string[];
 	/** Whether this card hosts the active prompt editor. */
 	promptHost?: boolean;
+	/** Whether an expandable context card is showing its detail. */
+	expanded?: boolean;
+	/** Session entries this compaction summarised, when known. */
+	summarized?: boolean;
 }
 
 /** A connection between two cards. */
@@ -100,6 +106,8 @@ export interface FlowSessionInfo {
 	draft: string;
 	/** Prompts submitted from the graph that have not yet appeared as session entries. */
 	queued: FlowQueuedPrompt[];
+	/** Current context window usage, when Pi reports it. */
+	contextUsage?: { tokens: number | null; percent: number | null; contextWindow: number };
 }
 
 /** A graph-submitted prompt waiting for Pi to accept it. */
@@ -152,16 +160,19 @@ export type FlowServerMessage =
 
 /** Messages sent from the browser to the extension. */
 export type FlowClientMessage =
-	| {
+	{
 			/** Ask for a fresh snapshot, for example after a dropped connection. */
 			type: "resync";
-	  }
-	| {
+	  } | {
+			/** Expand or collapse a context card. */
+			type: "collapse";
+			id: string;
+			expanded: boolean;
+	  } | {
 			/** Persist draft prompt text so reconnects can restore it. */
 			type: "draft";
 			text: string;
-	  }
-	| {
+	  } | {
 			/** Submit a prompt from the graph editor. */
 			type: "prompt";
 			text: string;
