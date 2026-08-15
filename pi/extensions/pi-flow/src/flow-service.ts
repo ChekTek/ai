@@ -136,6 +136,13 @@ export class FlowService {
 		server.broadcast({ type: "patch", revision: this.#revision, session: snapshot.session, delta });
 	}
 
+	/** Rebuild from the latest extension context, when one is available. */
+	public refresh(): void {
+		if (this.#latestCtx) {
+			this.publish(this.#latestCtx);
+		}
+	}
+
 	/**
 	 * Handle a message from a connected browser.
 	 * @param ctx Extension context for the active session.
@@ -152,7 +159,11 @@ export class FlowService {
 				this.#submitPrompt(ctx, message.text, message.deliverAs);
 				return;
 			case "collapse":
-				this.#live.context.setExpanded(message.id, message.expanded);
+				if (message.id.startsWith("context:")) {
+					this.#live.context.setExpanded(message.id, message.expanded);
+				} else {
+					this.#live.setCollapsed(message.id, !message.expanded);
+				}
 				this.publish(ctx);
 				return;
 		}

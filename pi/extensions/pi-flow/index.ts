@@ -3,6 +3,7 @@ import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@e
 import { FlowService } from "./src/flow-service.ts";
 import type { FlowAgentMessage } from "./src/messages.ts";
 import { getProcessState } from "./src/process-state.ts";
+import { asSpawnEvent, FLOW_SPAWN_CHANNEL } from "./src/spawn-protocol.ts";
 
 /**
  * Register the pi-flow conversation canvas.
@@ -111,6 +112,15 @@ export default function piFlowExtension(pi: ExtensionAPI): void {
 	pi.on("session_tree", (_event, ctx) => service.publish(ctx));
 	pi.on("session_info_changed", (_event, ctx) => service.publish(ctx));
 	pi.on("model_select", (_event, ctx) => service.publish(ctx));
+	pi.events.on(FLOW_SPAWN_CHANNEL, (data) => {
+		const spawn = asSpawnEvent(data);
+		if (!spawn) {
+			return;
+		}
+
+		service.live.noteSpawn(spawn);
+		service.refresh();
+	});
 }
 
 /**

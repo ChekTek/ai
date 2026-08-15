@@ -14,6 +14,8 @@ import {
 	truncate,
 } from "./messages.ts";
 import type { FlowEdge, FlowGraph, FlowNode, FlowNodeStatus, FlowQueuedPrompt, FlowSessionInfo } from "./protocol.ts";
+import type { FlowSpawnEvent } from "./spawn-protocol.ts";
+import { asSubagentDetails, spawnDetail, spawnPreview, spawnStatus, type SubagentDetails } from "./subagent.ts";
 
 /** Maximum characters kept for the inspector panel body of a node. */
 const DETAIL_LIMIT = 1200;
@@ -317,9 +319,179 @@ function attachToolBranches(
 			kind: "branch",
 			onActiveBranch: node.onActiveBranch,
 		});
+		attachNestedWork(toolNode, call.id, call.name, liveTool?.result, nodes, edges, live);
 	});
 
 	return { nodeId: node.id, depth: node.depth + 2, rejoinFrom };
+}
+
+/**
+ * Expand supported subagent details and cooperative spawn events under a tool node.
+ * @param toolNode Parent tool card.
+ * @param toolCallId Provider tool call id.
+ * @param toolName Tool name.
+ * @param result Latest tool result payload.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ * @param live Live agent state.
+ */
+function attachNestedWork(
+	toolNode: FlowNode,
+	toolCallId: string,
+	toolName: string,
+	result: unknown,
+	nodes: FlowNode[],
+	edges: FlowEdge[],
+	live: LiveState,
+): void {
+	const collapsed = live.isCollapsed(toolNode.id);
+	const details = toolName === "subagent" ? asSubagentDetails(result) : undefined;
+	const spawns = live.spawnsFor(toolCallId);
+	if (!details && spawns.length === 0) {
+		return;
+	}
+
+	toolNode.badges = [...(toolNode.badges ?? []), collapsed ? "collapsed" : "expanded"];
+	if (collapsed) {
+		return;
+	}
+
+	if (details) {
+		attachSubagentResults(toolNode, details, nodes, edges);
+		return;
+	}
+
+	spawns.forEach((spawn, index) => {
+		const child: FlowNode = {
+			id: `spawn:${spawn.taskId}`,
+			kind: spawn.type === "process" ? "bash" : "custom",
+			depth: toolNode.depth + 1,
+			layoutParentId: toolNode.id,
+			lane: index,
+			laneCount: spawns.length,
+			title: spawn.label ?? spawn.taskId,
+			subtitle: spawn.type ?? "task",
+			preview: spawnPreview(spawn),
+			detail: spawnDetail(spawn),
+			status: spawnStatus(spawn.state),
+			onActiveBranch: toolNode.onActiveBranch,
+			badges: [spawn.state],
+		};
+		nodes.push(child);
+		edges.push({
+			id: `${toolNode.id}->${child.id}`,
+			source: toolNode.id,
+			target: child.id,
+			kind: "branch",
+			onActiveBranch: toolNode.onActiveBranch,
+		});
+		attachSpawnMessages(child, spawn, nodes, edges);
+	});
+}
+
+/**
+ * Render each subagent task as a child branch, including nested messages when present.
+ * @param toolNode Parent subagent tool card.
+ * @param details Parsed subagent details.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ */
+function attachSubagentResults(toolNode: FlowNode, details: SubagentDetails, nodes: FlowNode[], edges: FlowEdge[]): void {
+	details.results.forEach((result, index) => {
+		const failed = (result.exitCode ?? 0) !== 0 || result.stopReason === "error";
+		const aborted = result.stopReason === "aborted";
+		const child: FlowNode = {
+			id: `${toolNode.id}:task:${result.step ?? index}`,
+			kind: "custom",
+			depth: toolNode.depth + 1,
+			layoutParentId: toolNode.id,
+			lane: details.mode === "chain" ? null : index,
+			laneCount: details.mode === "chain" ? null : details.results.length,
+			title: result.agent,
+			subtitle: details.mode === "chain" ? `step ${result.step ?? index + 1}` : details.mode,
+			preview: preview(result.task),
+			detail: truncate(result.errorMessage ?? result.task, DETAIL_LIMIT),
+			status: aborted ? "aborted" : failed ? "error" : result.exitCode === undefined ? "running" : "success",
+			onActiveBranch: toolNode.onActiveBranch,
+			badges: [details.mode],
+		};
+		nodes.push(child);
+		edges.push({
+			id: `${toolNode.id}->${child.id}`,
+			source: toolNode.id,
+			target: child.id,
+			kind: "branch",
+			onActiveBranch: toolNode.onActiveBranch,
+		});
+
+		const nestedParent = details.mode === "chain" && index > 0 ? `${toolNode.id}:task:${details.results[index - 1]?.step ?? index - 1}` : child.id;
+		if (details.mode === "chain" && index > 0) {
+			child.layoutParentId = nestedParent;
+			child.depth = toolNode.depth + 1 + index;
+		}
+
+		(result.messages ?? []).forEach((message, messageIndex) => {
+			const role = typeof message.role === "string" ? message.role : "assistant";
+			const text = textOf(message.content);
+			if (text.length === 0 && role !== "tool") {
+				return;
+			}
+
+			const nested: FlowNode = {
+				id: `${child.id}:msg:${messageIndex}`,
+				kind: role === "user" ? "user" : role === "tool" ? "tool" : "assistant",
+				depth: child.depth + 1 + messageIndex,
+				layoutParentId: messageIndex === 0 ? child.id : `${child.id}:msg:${messageIndex - 1}`,
+				lane: null,
+				laneCount: null,
+				title: role,
+				preview: preview(text),
+				detail: truncate(text, DETAIL_LIMIT),
+				status: "success",
+				onActiveBranch: child.onActiveBranch,
+			};
+			nodes.push(nested);
+			edges.push({
+				id: `${nested.layoutParentId}->${nested.id}`,
+				source: nested.layoutParentId ?? child.id,
+				target: nested.id,
+				kind: "flow",
+				onActiveBranch: child.onActiveBranch,
+			});
+		});
+	});
+}
+
+/**
+ * Attach nested messages from a cooperative spawn event.
+ * @param parent Spawn card.
+ * @param spawn Spawn event.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ */
+function attachSpawnMessages(parent: FlowNode, spawn: FlowSpawnEvent, nodes: FlowNode[], edges: FlowEdge[]): void {
+	(spawn.messages ?? []).forEach((message, index) => {
+		const nested: FlowNode = {
+			id: `${parent.id}:${message.id}`,
+			kind: message.role === "user" ? "user" : message.role === "tool" ? "tool" : "assistant",
+			depth: parent.depth + 1 + index,
+			layoutParentId: index === 0 ? parent.id : `${parent.id}:${spawn.messages?.[index - 1]?.id ?? ""}`,
+			lane: null,
+			laneCount: null,
+			title: message.toolName ?? message.role,
+			preview: message.text ? preview(message.text) : undefined,
+			status: spawnStatus(spawn.state),
+			onActiveBranch: parent.onActiveBranch,
+		};
+		nodes.push(nested);
+		edges.push({
+			id: `${nested.layoutParentId}->${nested.id}`,
+			source: nested.layoutParentId ?? parent.id,
+			target: nested.id,
+			kind: "flow",
+			onActiveBranch: parent.onActiveBranch,
+		});
+	});
 }
 
 /**

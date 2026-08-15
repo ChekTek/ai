@@ -709,7 +709,7 @@ function updateCard(card, node, selected, draft, busy) {
 
 	const expand = card.querySelector(".node-expand");
 	if (expand instanceof HTMLButtonElement) {
-		const expandable = node.kind === "context";
+		const expandable = node.kind === "context" || (node.badges ?? []).includes("collapsed") || (node.badges ?? []).includes("expanded");
 		expand.hidden = !expandable;
 		expand.textContent = node.expanded ? "Collapse" : "Expand";
 		expand.dataset.expanded = node.expanded ? "true" : "false";

@@ -1,6 +1,7 @@
 import { ContextTracker } from "./context-tracker.ts";
 import type { FlowAgentMessage } from "./messages.ts";
 import type { FlowDeliverAs, FlowQueuedPrompt } from "./protocol.ts";
+import type { FlowSpawnEvent } from "./spawn-protocol.ts";
 
 /** In-flight tool execution that has no persisted `toolResult` entry yet. */
 export interface LiveToolExecution {
@@ -53,6 +54,8 @@ export class LiveState {
 	readonly #tools = new Map<string, LiveToolExecution>();
 	readonly #queued: FlowQueuedPrompt[] = [];
 	readonly #context = new ContextTracker();
+	readonly #spawns = new Map<string, FlowSpawnEvent>();
+	readonly #collapsed = new Set<string>();
 	#busy = false;
 	#draft = "";
 	#queueSeq = 0;
@@ -83,6 +86,50 @@ export class LiveState {
 	/** Inspectable context snapshots for the current session. */
 	public get context(): ContextTracker {
 		return this.#context;
+	}
+
+	/** Cooperative spawn events keyed by task id. */
+	public get spawns(): readonly FlowSpawnEvent[] {
+		return [...this.#spawns.values()];
+	}
+
+	/**
+	 * Record or refresh a cooperative spawn event.
+	 * @param spawn Spawn payload.
+	 */
+	public noteSpawn(spawn: FlowSpawnEvent): void {
+		this.#spawns.set(spawn.taskId, spawn);
+	}
+
+	/**
+	 * Look up spawn events that hang off a parent tool or node.
+	 * @param parentId Parent id.
+	 * @returns Matching spawn events.
+	 */
+	public spawnsFor(parentId: string): FlowSpawnEvent[] {
+		return [...this.#spawns.values()].filter((spawn) => spawn.parentId === parentId);
+	}
+
+	/**
+	 * Whether a nested branch is collapsed.
+	 * @param id Branch node id.
+	 * @returns True when collapsed.
+	 */
+	public isCollapsed(id: string): boolean {
+		return this.#collapsed.has(id);
+	}
+
+	/**
+	 * Collapse or expand a nested branch.
+	 * @param id Branch node id.
+	 * @param collapsed Whether the branch should hide children.
+	 */
+	public setCollapsed(id: string, collapsed: boolean): void {
+		if (collapsed) {
+			this.#collapsed.add(id);
+		} else {
+			this.#collapsed.delete(id);
+		}
 	}
 
 	/** Live messages in arrival order. */
@@ -214,5 +261,7 @@ export class LiveState {
 		this.#draft = "";
 		this.#queueSeq = 0;
 		this.#context.reset();
+		this.#spawns.clear();
+		this.#collapsed.clear();
 	}
 }
