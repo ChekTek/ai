@@ -22,7 +22,7 @@
 				<button id="fit" type="button" title="Fit graph to viewport (F)">Fit view</button>
 				<button id="zoom-out" type="button" title="Zoom out (-)">&minus;</button>
 				<button id="zoom-in" type="button" title="Zoom in (+)">&plus;</button>
-				<button id="follow" type="button" class="toggle" title="Keep the newest node in view">Follow</button>
+				<button id="auto" type="button" class="toggle on" title="Resume Auto camera (crosshair)">Auto</button>
 				<span id="connection" class="pill pill-offline">connecting</span>
 			</div>
 		</header>
@@ -32,7 +32,21 @@
 				<g id="edge-layer"></g>
 			</svg>
 			<div class="nodes" id="nodes"></div>
-			<p class="empty" id="empty">No conversation yet. Send a prompt in Pi to populate the graph.</p>
+			<div class="empty" id="empty">
+				<p>No conversation yet. Send a prompt here or in Pi to populate the graph.</p>
+				<form class="node-prompt empty-prompt" id="empty-prompt">
+					<textarea
+						class="node-prompt-input"
+						id="empty-prompt-input"
+						rows="3"
+						placeholder="Message Pi…"
+					></textarea>
+					<div class="node-prompt-actions">
+						<button type="submit" class="node-prompt-send">Send</button>
+						<span class="node-prompt-hint">Enter to send · Shift+Enter to steer while busy</span>
+					</div>
+				</form>
+			</div>
 		</main>
 
 		<aside class="inspector" id="inspector" hidden>

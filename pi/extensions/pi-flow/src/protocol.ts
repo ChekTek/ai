@@ -6,7 +6,18 @@
  */
 
 /** Category of a node on the conversation canvas. */
-export type FlowNodeKind = "assistant" | "bash" | "branchSummary" | "compaction" | "custom" | "tool" | "user";
+export type FlowNodeKind =
+	| "assistant"
+	| "bash"
+	| "branchSummary"
+	| "compaction"
+	| "custom"
+	| "queued"
+	| "tool"
+	| "user";
+
+/** How a graph-submitted prompt is delivered while the agent is already running. */
+export type FlowDeliverAs = "followUp" | "steer";
 
 /** Lifecycle state rendered on a node card. */
 export type FlowNodeStatus = "aborted" | "error" | "running" | "streaming" | "success";
@@ -43,6 +54,8 @@ export interface FlowNode {
 	onActiveBranch: boolean;
 	/** Small key/value badges rendered on the card. */
 	badges?: string[];
+	/** Whether this card hosts the active prompt editor. */
+	promptHost?: boolean;
 }
 
 /** A connection between two cards. */
@@ -83,6 +96,20 @@ export interface FlowSessionInfo {
 	leafId: string | null;
 	/** Whether the agent is currently working. */
 	busy: boolean;
+	/** Draft prompt text preserved across graph updates and reconnects. */
+	draft: string;
+	/** Prompts submitted from the graph that have not yet appeared as session entries. */
+	queued: FlowQueuedPrompt[];
+}
+
+/** A graph-submitted prompt waiting for Pi to accept it. */
+export interface FlowQueuedPrompt {
+	/** Stable id for the queued card. */
+	id: string;
+	/** Prompt text. */
+	text: string;
+	/** Delivery mode used while the agent was busy. */
+	deliverAs: FlowDeliverAs;
 }
 
 /** Difference between two graph revisions. */
@@ -124,7 +151,19 @@ export type FlowServerMessage =
 	  };
 
 /** Messages sent from the browser to the extension. */
-export type FlowClientMessage = {
-	/** Ask for a fresh snapshot, for example after a dropped connection. */
-	type: "resync";
-};
+export type FlowClientMessage =
+	| {
+			/** Ask for a fresh snapshot, for example after a dropped connection. */
+			type: "resync";
+	  }
+	| {
+			/** Persist draft prompt text so reconnects can restore it. */
+			type: "draft";
+			text: string;
+	  }
+	| {
+			/** Submit a prompt from the graph editor. */
+			type: "prompt";
+			text: string;
+			deliverAs?: FlowDeliverAs;
+	  };

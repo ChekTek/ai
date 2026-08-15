@@ -20,7 +20,11 @@ const CARD_HEIGHTS = {
 	compaction: 104,
 	branchSummary: 104,
 	custom: 104,
+	queued: 112,
 };
+
+/** Extra height reserved on the card that hosts the prompt editor. */
+const PROMPT_HOST_EXTRA = 118;
 
 /** Minimum separation between sibling subtrees, in columns. */
 const SUBTREE_GAP = 1;
@@ -51,7 +55,8 @@ const SUBTREE_GAP = 1;
  * @returns {number} Card height in pixels.
  */
 export function cardHeight(node) {
-	return CARD_HEIGHTS[node.kind] ?? 104;
+	const base = CARD_HEIGHTS[node.kind] ?? 104;
+	return node.promptHost ? base + PROMPT_HOST_EXTRA : base;
 }
 
 /**

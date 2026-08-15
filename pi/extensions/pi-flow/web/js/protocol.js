@@ -6,7 +6,11 @@
  */
 
 /**
- * @typedef {"user" | "assistant" | "tool" | "bash" | "compaction" | "branchSummary" | "custom"} FlowNodeKind
+ * @typedef {"user" | "assistant" | "tool" | "bash" | "compaction" | "branchSummary" | "custom" | "queued"} FlowNodeKind
+ */
+
+/**
+ * @typedef {"steer" | "followUp"} FlowDeliverAs
  */
 
 /**
@@ -30,6 +34,7 @@
  * @property {string} [entryId] Session entry id, when persisted.
  * @property {boolean} onActiveBranch Whether the node sits on the active branch.
  * @property {string[]} [badges] Small badges rendered on the card.
+ * @property {boolean} [promptHost] Whether this card hosts the active prompt editor.
  */
 
 /**
@@ -56,6 +61,15 @@
  * @property {string} [model] Active model label.
  * @property {string | null} leafId Current leaf entry id.
  * @property {boolean} busy Whether the agent is currently working.
+ * @property {string} draft Draft prompt text preserved across reconnects.
+ * @property {FlowQueuedPrompt[]} queued Graph-submitted prompts not yet in the session.
+ */
+
+/**
+ * @typedef {object} FlowQueuedPrompt
+ * @property {string} id Stable id for the queued card.
+ * @property {string} text Prompt text.
+ * @property {FlowDeliverAs} deliverAs Delivery mode used while the agent was busy.
  */
 
 /**
@@ -75,7 +89,9 @@
  */
 
 /**
- * @typedef {{ type: "resync" }} FlowClientMessage
+ * @typedef {{ type: "resync" }
+ *   | { type: "draft", text: string }
+ *   | { type: "prompt", text: string, deliverAs?: FlowDeliverAs }} FlowClientMessage
  */
 
 /**

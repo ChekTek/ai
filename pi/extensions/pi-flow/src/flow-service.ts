@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import type { WebSocket } from "ws";
 
@@ -8,7 +8,7 @@ import { buildSnapshot } from "./graph-builder.ts";
 import { computeDelta, isEmptyDelta } from "./graph-delta.ts";
 import { LiveState } from "./live-state.ts";
 import { getProcessState } from "./process-state.ts";
-import type { FlowGraph, FlowSessionInfo } from "./protocol.ts";
+import type { FlowClientMessage, FlowDeliverAs, FlowGraph, FlowSessionInfo } from "./protocol.ts";
 
 /** Delay used to batch bursts of streaming events into a single broadcast. */
 const BROADCAST_DELAY_MS = 60;
@@ -22,6 +22,7 @@ const WEB_ROOT = join(import.meta.dirname, "..", "web");
  */
 export class FlowService {
 	readonly #live = new LiveState();
+	readonly #pi: ExtensionAPI;
 	#server: FlowServer | undefined;
 	#starting: Promise<string> | undefined;
 	#stopping: Promise<void> | undefined;
@@ -30,6 +31,15 @@ export class FlowService {
 	#graph: FlowGraph | undefined;
 	#session: FlowSessionInfo | undefined;
 	#revision = 0;
+	#latestCtx: ExtensionContext | undefined;
+
+	/**
+	 * Create the session-scoped canvas service.
+	 * @param pi Extension API used to submit prompts from the graph.
+	 */
+	constructor(pi: ExtensionAPI) {
+		this.#pi = pi;
+	}
 
 	/** Live agent state fed by the extension's event handlers. */
 	public get live(): LiveState {
@@ -106,6 +116,7 @@ export class FlowService {
 	 * @param ctx Extension context for the active session.
 	 */
 	public publish(ctx: ExtensionContext): void {
+		this.#latestCtx = ctx;
 		const server = this.#server;
 		if (!server) {
 			return;
@@ -123,6 +134,24 @@ export class FlowService {
 
 		this.#revision += 1;
 		server.broadcast({ type: "patch", revision: this.#revision, session: snapshot.session, delta });
+	}
+
+	/**
+	 * Handle a message from a connected browser.
+	 * @param ctx Extension context for the active session.
+	 * @param message Client message.
+	 */
+	public handleClient(ctx: ExtensionContext, message: FlowClientMessage): void {
+		switch (message.type) {
+			case "resync":
+				return;
+			case "draft":
+				this.#live.draft = message.text;
+				return;
+			case "prompt":
+				this.#submitPrompt(ctx, message.text, message.deliverAs);
+				return;
+		}
 	}
 
 	/**
@@ -163,6 +192,7 @@ export class FlowService {
 		this.#starting = undefined;
 		this.#graph = undefined;
 		this.#session = undefined;
+		this.#latestCtx = undefined;
 		this.#live.reset();
 
 		if (!server) {
@@ -186,6 +216,10 @@ export class FlowService {
 			token: state.token,
 			onConnection: (socket): void => this.#sendSnapshot(ctx, socket, server),
 			onResync: (socket): void => this.#sendSnapshot(ctx, socket, server),
+			onClientMessage: (message): void => {
+				const current = this.#latestCtx ?? ctx;
+				this.handleClient(current, message);
+			},
 		});
 
 		state.port = await server.start(state.port);
@@ -198,6 +232,7 @@ export class FlowService {
 		this.#server = server;
 		this.#graph = undefined;
 		this.#session = undefined;
+		this.#latestCtx = ctx;
 
 		return server.url;
 	}
@@ -225,5 +260,46 @@ export class FlowService {
 		}
 
 		server.send(socket, { type: "snapshot", revision: this.#revision, session, graph });
+	}
+
+	/**
+	 * Submit a prompt from the graph through Pi's supported user-message API.
+	 * @param ctx Extension context for the active session.
+	 * @param text Prompt text.
+	 * @param requested Delivery mode chosen by the browser, when the agent is busy.
+	 */
+	#submitPrompt(ctx: ExtensionContext, text: string, requested?: FlowDeliverAs): void {
+		const trimmed = text.trim();
+		if (trimmed.length === 0) {
+			return;
+		}
+
+		const busy = !ctx.isIdle();
+		const deliverAs = busy ? (requested ?? "followUp") : undefined;
+		try {
+			if (deliverAs) {
+				this.#pi.sendUserMessage(trimmed, { deliverAs, expandPromptTemplates: true });
+				this.#live.queuePrompt(trimmed, deliverAs);
+			} else {
+				this.#pi.sendUserMessage(trimmed, { expandPromptTemplates: true });
+				this.#live.draft = "";
+			}
+		} catch (error) {
+			notifyError(ctx, error);
+			return;
+		}
+
+		this.publish(ctx);
+	}
+}
+
+/**
+ * Show a submission failure in Pi when a UI is available.
+ * @param ctx Extension context.
+ * @param error Thrown value.
+ */
+function notifyError(ctx: ExtensionContext, error: unknown): void {
+	if (ctx.hasUI) {
+		ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 	}
 }

@@ -30,6 +30,9 @@ const FIT_PADDING = 64;
  * @typedef {object} CanvasCallbacks
  * @property {(node: FlowNode | undefined) => void} onSelect Called when the selection changes.
  * @property {(id: string, x: number, y: number) => void} onPin Called when a card is dragged to a new position.
+ * @property {(text: string, deliverAs?: import("./protocol.js").FlowDeliverAs) => void} onPrompt Called when the graph editor submits.
+ * @property {(text: string) => void} onDraft Called when draft text changes.
+ * @property {(enabled: boolean) => void} onAutoChange Called when Auto mode is enabled or disabled.
  */
 
 /**
@@ -68,13 +71,31 @@ export class FlowCanvas {
 	#selectedId;
 
 	/** @type {boolean} */
-	#follow = true;
+	#auto = true;
 
 	/** @type {boolean} */
 	#fitted = false;
 
 	/** @type {boolean} */
 	#dragging = false;
+
+	/** @type {boolean} */
+	#busy = false;
+
+	/** @type {string} */
+	#draft = "";
+
+	/** @type {number | undefined} */
+	#animFrame;
+
+	/** Milliseconds for Auto camera animation. */
+	#animStarted = 0;
+
+	/** @type {{ x: number, y: number, k: number } | undefined} */
+	#animFrom;
+
+	/** @type {{ x: number, y: number, k: number } | undefined} */
+	#animTo;
 
 	/**
 	 * @param {CanvasElements} dom Canvas elements.
@@ -87,17 +108,19 @@ export class FlowCanvas {
 		this.#bindWheel();
 	}
 
-	/** Whether the newest activity is kept in view. @returns {boolean} Follow state. */
-	get follow() {
-		return this.#follow;
+	/** Whether Auto camera following is enabled. @returns {boolean} Auto state. */
+	get auto() {
+		return this.#auto;
 	}
 
-	/** @param {boolean} value Whether to keep the newest activity in view. */
-	set follow(value) {
-		this.#follow = value;
+	/** @param {boolean} value Whether to keep current activity in view. */
+	set auto(value) {
+		this.#auto = value;
 		if (value) {
-			this.#revealNewest();
+			this.#frameActivity(true);
 		}
+
+		this.#callbacks.onAutoChange(value);
 	}
 
 	/**
@@ -105,10 +128,19 @@ export class FlowCanvas {
 	 * @param {FlowNode[]} nodes Nodes to draw.
 	 * @param {FlowEdge[]} edges Edges to draw.
 	 * @param {Map<string, { x: number, y: number }>} pinned Manual positions from dragging.
+	 * @param {{ draft?: string, busy?: boolean }} [state] Editor and agent state.
 	 */
-	render(nodes, edges, pinned) {
+	render(nodes, edges, pinned, state) {
 		this.#nodes = nodes;
 		this.#edges = edges;
+		this.#busy = Boolean(state?.busy);
+		if (state?.draft !== undefined) {
+			const active = document.activeElement;
+			if (!(active instanceof Element && active.closest(".node-prompt"))) {
+				this.#draft = state.draft;
+			}
+		}
+
 		this.#dom.empty.hidden = nodes.length > 0;
 
 		const layout = computeLayout(nodes, pinned);
@@ -118,14 +150,24 @@ export class FlowCanvas {
 
 		if (!this.#fitted && nodes.length > 0) {
 			this.#fitted = true;
-			this.fit();
-		} else if (this.#follow) {
-			this.#revealNewest();
+			if (this.#auto) {
+				this.#frameActivity(true);
+			} else {
+				this.#fitView();
+			}
+		} else if (this.#auto) {
+			this.#frameActivity();
 		}
 	}
 
 	/** Scale and centre the graph so the whole conversation is visible. */
 	fit() {
+		this.#disableAuto();
+		this.#fitView();
+	}
+
+	/** Apply a fit-to-view transform without changing Auto mode. */
+	#fitView() {
 		const bounds = this.#bounds();
 		const stage = this.#dom.stage.getBoundingClientRect();
 		if (!bounds || stage.width === 0 || stage.height === 0) {
@@ -152,6 +194,7 @@ export class FlowCanvas {
 	 * @param {number} factor Multiplier applied to the current zoom level.
 	 */
 	zoomBy(factor) {
+		this.#disableAuto();
 		const stage = this.#dom.stage.getBoundingClientRect();
 		this.#zoomAt(stage.width / 2, stage.height / 2, factor);
 	}
@@ -192,11 +235,12 @@ export class FlowCanvas {
 			let element = this.#nodeElements.get(node.id);
 			if (!element) {
 				element = createCard(node.id);
+				this.#bindPrompt(element);
 				this.#nodeElements.set(node.id, element);
 				this.#dom.nodes.append(element);
 			}
 
-			updateCard(element, node, node.id === this.#selectedId);
+			updateCard(element, node, node.id === this.#selectedId, this.#draft, this.#busy);
 			element.style.transform = `translate(${box.x - box.width / 2}px, ${box.y}px)`;
 			element.style.height = `${box.height}px`;
 		}
@@ -303,44 +347,203 @@ export class FlowCanvas {
 		return { x: minX, y: minY, width: Math.max(maxX - minX, 1), height: Math.max(maxY - minY, 1) };
 	}
 
-	/** Pan just enough to bring the newest card into view. */
-	#revealNewest() {
-		if (this.#dragging) {
+	/**
+	 * Animate the viewport toward the latest relevant activity.
+	 * @param {boolean} [immediate] Skip animation and snap.
+	 */
+	#frameActivity(immediate = false) {
+		if (!this.#auto || this.#dragging) {
 			return;
 		}
 
-		const newest = this.#nodes.at(-1);
-		const box = newest ? this.#boxes.get(newest.id) : undefined;
-		if (!box) {
+		const target = this.#activityView();
+		if (!target) {
 			return;
+		}
+
+		if (immediate || viewsClose(this.#view, target)) {
+			this.#stopAnimation();
+			this.#view = target;
+			this.#applyTransform();
+			return;
+		}
+
+		this.#animFrom = { ...this.#view };
+		this.#animTo = target;
+		this.#animStarted = performance.now();
+		if (this.#animFrame === undefined) {
+			this.#animFrame = requestAnimationFrame((time) => this.#tickAnimation(time));
+		}
+	}
+
+	/**
+	 * Disable Auto mode after a manual camera or layout change.
+	 */
+	#disableAuto() {
+		if (!this.#auto) {
+			return;
+		}
+
+		this.#auto = false;
+		this.#stopAnimation();
+		this.#callbacks.onAutoChange(false);
+	}
+
+	/**
+	 * Bind the prompt form on a newly created card.
+	 * @param {HTMLElement} card Card element.
+	 */
+	#bindPrompt(card) {
+		const form = card.querySelector(".node-prompt");
+		const input = card.querySelector(".node-prompt-input");
+		if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLTextAreaElement)) {
+			return;
+		}
+
+		form.addEventListener("pointerdown", (event) => event.stopPropagation());
+		form.addEventListener("submit", (event) => {
+			event.preventDefault();
+			this.#callbacks.onPrompt(input.value, this.#busy ? "followUp" : undefined);
+		});
+		input.addEventListener("input", () => this.#callbacks.onDraft(input.value));
+		input.addEventListener("keydown", (event) => {
+			if (event.key !== "Enter" || event.shiftKey) {
+				return;
+			}
+
+			event.preventDefault();
+			if ((event.metaKey || event.ctrlKey) && this.#busy) {
+				this.#callbacks.onPrompt(input.value, "steer");
+				return;
+			}
+
+			form.requestSubmit();
+		});
+	}
+
+	/**
+	 * Compute a viewport that keeps the latest main node near centre with nearby branches visible.
+	 * @returns {{ x: number, y: number, k: number } | undefined} Target view.
+	 */
+	#activityView() {
+		const focus = this.#focusNode();
+		const box = focus ? this.#boxes.get(focus.id) : undefined;
+		if (!focus || !box) {
+			return undefined;
+		}
+
+		const nearby = this.#nearbyBoxes(focus);
+		let minX = box.x - box.width / 2;
+		let maxX = box.x + box.width / 2;
+		let minY = box.y;
+		let maxY = box.y + box.height;
+		for (const other of nearby) {
+			minX = Math.min(minX, other.x - other.width / 2);
+			maxX = Math.max(maxX, other.x + other.width / 2);
+			minY = Math.min(minY, other.y);
+			maxY = Math.max(maxY, other.y + other.height);
 		}
 
 		const stage = this.#dom.stage.getBoundingClientRect();
-		const { x, y, k } = this.#view;
-		const left = box.x * k - (box.width * k) / 2 + x;
-		const right = left + box.width * k;
-		const top = box.y * k + y;
-		const bottom = top + box.height * k;
-		const margin = 48;
-		let nextX = x;
-		let nextY = y;
-
-		if (right > stage.width - margin) {
-			nextX -= right - (stage.width - margin);
-		} else if (left < margin) {
-			nextX += margin - left;
+		if (stage.width === 0 || stage.height === 0) {
+			return undefined;
 		}
 
-		if (bottom > stage.height - margin) {
-			nextY -= bottom - (stage.height - margin);
-		} else if (top < margin) {
-			nextY += margin - top;
+		const padding = 80;
+		const width = Math.max(maxX - minX, 1);
+		const height = Math.max(maxY - minY, 1);
+		const scale = clamp(
+			Math.min((stage.width - padding * 2) / width, (stage.height - padding * 2) / height),
+			MIN_ZOOM,
+			1.15,
+		);
+		return {
+			k: scale,
+			x: stage.width / 2 - ((minX + maxX) / 2) * scale,
+			y: stage.height / 2 - ((minY + maxY) / 2) * scale,
+		};
+	}
+
+	/**
+	 * Choose the node Auto mode should keep in view.
+	 * @returns {FlowNode | undefined} Focus node.
+	 */
+	#focusNode() {
+		const live = [...this.#nodes].reverse().find((node) => {
+			return node.onActiveBranch && (node.status === "running" || node.status === "streaming" || node.kind === "queued");
+		});
+		if (live) {
+			return live;
 		}
 
-		if (nextX !== x || nextY !== y) {
-			this.#view = { x: nextX, y: nextY, k };
-			this.#applyTransform();
+		return [...this.#nodes].reverse().find((node) => node.onActiveBranch && node.lane === null && node.kind !== "tool");
+	}
+
+	/**
+	 * Collect nearby branch cards to keep in frame with the focus node.
+	 * @param {FlowNode} focus Node Auto is following.
+	 * @returns {import("./layout.js").NodeBox[]} Nearby boxes.
+	 */
+	#nearbyBoxes(focus) {
+		/** @type {import("./layout.js").NodeBox[]} */
+		const boxes = [];
+		for (const node of this.#nodes) {
+			if (node.id === focus.id || Math.abs(node.depth - focus.depth) > 2) {
+				continue;
+			}
+
+			const box = this.#boxes.get(node.id);
+			if (box) {
+				boxes.push(box);
+			}
+
+			if (boxes.length >= 6) {
+				break;
+			}
 		}
+
+		return boxes;
+	}
+
+	/**
+	 * Advance the Auto camera animation.
+	 * @param {number} time Animation timestamp.
+	 */
+	#tickAnimation(time) {
+		const from = this.#animFrom;
+		const to = this.#animTo;
+		if (!from || !to) {
+			this.#animFrame = undefined;
+			return;
+		}
+
+		const progress = clamp((time - this.#animStarted) / 280, 0, 1);
+		const eased = 1 - (1 - progress) ** 3;
+		this.#view = {
+			x: from.x + (to.x - from.x) * eased,
+			y: from.y + (to.y - from.y) * eased,
+			k: from.k + (to.k - from.k) * eased,
+		};
+		this.#applyTransform();
+		if (progress < 1 && this.#auto) {
+			this.#animFrame = requestAnimationFrame((next) => this.#tickAnimation(next));
+			return;
+		}
+
+		this.#animFrame = undefined;
+		this.#animFrom = undefined;
+		this.#animTo = undefined;
+	}
+
+	/** Cancel an in-flight Auto camera animation. */
+	#stopAnimation() {
+		if (this.#animFrame !== undefined) {
+			cancelAnimationFrame(this.#animFrame);
+			this.#animFrame = undefined;
+		}
+
+		this.#animFrom = undefined;
+		this.#animTo = undefined;
 	}
 
 	/** Wire panning, card dragging, and click selection. */
@@ -349,6 +552,10 @@ export class FlowCanvas {
 
 		stage.addEventListener("pointerdown", (event) => {
 			if (event.button !== 0) {
+				return;
+			}
+
+			if (event.target instanceof Element && event.target.closest(".node-prompt")) {
 				return;
 			}
 
@@ -374,6 +581,7 @@ export class FlowCanvas {
 				}
 
 				moved = true;
+				this.#disableAuto();
 				if (card && id && box) {
 					this.#dragging = true;
 					card.classList.add("dragging");
@@ -413,6 +621,7 @@ export class FlowCanvas {
 			"wheel",
 			(event) => {
 				event.preventDefault();
+				this.#disableAuto();
 				const stage = this.#dom.stage.getBoundingClientRect();
 				const pointerX = event.clientX - stage.left;
 				const pointerY = event.clientY - stage.top;
@@ -445,6 +654,12 @@ function createCard(id) {
 		'<div class="node-subtitle"></div>' +
 		'<div class="node-preview"></div>' +
 		'<div class="node-badges"></div>' +
+		'<form class="node-prompt" hidden>' +
+		'<textarea class="node-prompt-input" rows="3" placeholder="Message Pi…"></textarea>' +
+		'<div class="node-prompt-actions">' +
+		'<button type="submit" class="node-prompt-send">Send</button>' +
+		'<span class="node-prompt-hint">Enter to send · ⌘Enter to steer while busy</span>' +
+		"</div></form>" +
 		'<span class="node-port out"></span>';
 
 	return card;
@@ -455,13 +670,16 @@ function createCard(id) {
  * @param {HTMLElement} card Card element.
  * @param {FlowNode} node Node data.
  * @param {boolean} selected Whether the card is selected.
+ * @param {string} draft Draft prompt text.
+ * @param {boolean} busy Whether the agent is working.
  */
-function updateCard(card, node, selected) {
+function updateCard(card, node, selected, draft, busy) {
 	card.className = [
 		"flow-node",
 		`kind-${node.kind}`,
 		`status-${node.status}`,
 		node.onActiveBranch ? "" : "off-branch",
+		node.promptHost ? "prompt-host" : "",
 		selected ? "selected" : "",
 	]
 		.filter(Boolean)
@@ -471,6 +689,21 @@ function updateCard(card, node, selected) {
 	setText(card, ".node-title", node.title);
 	setText(card, ".node-subtitle", node.subtitle ?? "");
 	setText(card, ".node-preview", node.preview ?? "");
+
+	const form = card.querySelector(".node-prompt");
+	const input = card.querySelector(".node-prompt-input");
+	const send = card.querySelector(".node-prompt-send");
+	if (form instanceof HTMLFormElement) {
+		form.hidden = !node.promptHost;
+	}
+
+	if (input instanceof HTMLTextAreaElement && node.promptHost && document.activeElement !== input) {
+		input.value = draft;
+	}
+
+	if (send instanceof HTMLButtonElement) {
+		send.textContent = busy ? "Queue" : "Send";
+	}
 
 	const badges = card.querySelector(".node-badges");
 	if (badges) {
@@ -507,4 +740,14 @@ function setText(card, selector, text) {
  */
 function clamp(value, min = MIN_ZOOM, max = MAX_ZOOM) {
 	return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * True when two viewport transforms are close enough that animating would jitter.
+ * @param {{ x: number, y: number, k: number }} left First view.
+ * @param {{ x: number, y: number, k: number }} right Second view.
+ * @returns {boolean} Whether the views are effectively equal.
+ */
+function viewsClose(left, right) {
+	return Math.abs(left.x - right.x) < 2 && Math.abs(left.y - right.y) < 2 && Math.abs(left.k - right.k) < 0.01;
 }

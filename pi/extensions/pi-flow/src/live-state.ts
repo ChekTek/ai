@@ -1,4 +1,5 @@
 import type { FlowAgentMessage } from "./messages.ts";
+import type { FlowDeliverAs, FlowQueuedPrompt } from "./protocol.ts";
 
 /** In-flight tool execution that has no persisted `toolResult` entry yet. */
 export interface LiveToolExecution {
@@ -49,7 +50,10 @@ export function messageKey(message: FlowAgentMessage): string {
 export class LiveState {
 	readonly #messages = new Map<string, LiveMessage>();
 	readonly #tools = new Map<string, LiveToolExecution>();
+	readonly #queued: FlowQueuedPrompt[] = [];
 	#busy = false;
+	#draft = "";
+	#queueSeq = 0;
 
 	/** Whether the agent is currently running a turn. */
 	public get busy(): boolean {
@@ -58,6 +62,20 @@ export class LiveState {
 
 	public set busy(value: boolean) {
 		this.#busy = value;
+	}
+
+	/** Draft prompt text from the graph editor. */
+	public get draft(): string {
+		return this.#draft;
+	}
+
+	public set draft(value: string) {
+		this.#draft = value;
+	}
+
+	/** Graph-submitted prompts that have not yet appeared as session entries. */
+	public get queued(): readonly FlowQueuedPrompt[] {
+		return this.#queued;
 	}
 
 	/** Live messages in arrival order. */
@@ -138,6 +156,21 @@ export class LiveState {
 	 * @param committedMessageKeys Keys of messages found in the session tree.
 	 * @param committedToolCallIds Tool call ids that have a persisted `toolResult` entry.
 	 */
+	/**
+	 * Record a prompt submitted from the graph until the matching user message lands.
+	 * @param text Prompt text.
+	 * @param deliverAs Delivery mode used while the agent was busy.
+	 * @returns The queued prompt.
+	 */
+	public queuePrompt(text: string, deliverAs: FlowDeliverAs): FlowQueuedPrompt {
+		this.#queueSeq += 1;
+		const queued: FlowQueuedPrompt = { id: `queued:${this.#queueSeq}`, text, deliverAs };
+		this.#queued.push(queued);
+		this.#draft = "";
+
+		return queued;
+	}
+
 	public prune(committedMessageKeys: ReadonlySet<string>, committedToolCallIds: ReadonlySet<string>): void {
 		for (const key of this.#messages.keys()) {
 			if (committedMessageKeys.has(key)) {
@@ -152,10 +185,26 @@ export class LiveState {
 		}
 	}
 
+	/**
+	 * Drop queued graph submissions that have appeared as user messages.
+	 * @param userTexts Trimmed user-message bodies from the current graph.
+	 */
+	public settleQueued(userTexts: ReadonlySet<string>): void {
+		for (let index = this.#queued.length - 1; index >= 0; index -= 1) {
+			const queued = this.#queued[index];
+			if (queued && userTexts.has(queued.text.trim())) {
+				this.#queued.splice(index, 1);
+			}
+		}
+	}
+
 	/** Forget all live state, for example when a new session replaces the current one. */
 	public reset(): void {
 		this.#messages.clear();
 		this.#tools.clear();
+		this.#queued.length = 0;
 		this.#busy = false;
+		this.#draft = "";
+		this.#queueSeq = 0;
 	}
 }

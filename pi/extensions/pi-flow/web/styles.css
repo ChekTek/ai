@@ -244,7 +244,8 @@ button.toggle.on {
 .flow-node.kind-compaction,
 .flow-node.kind-branchSummary,
 .flow-node.kind-custom,
-.flow-node.kind-bash {
+.flow-node.kind-bash,
+.flow-node.kind-queued {
 	--accent: var(--context);
 }
 
@@ -347,8 +348,44 @@ button.toggle.on {
 	bottom: -4px;
 }
 
-[hidden] {
-	display: none !important;
+.node-prompt {
+	margin-top: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.node-prompt-input {
+	width: 100%;
+	resize: none;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--bg);
+	color: var(--text);
+	padding: 8px;
+	font: inherit;
+	line-height: 1.4;
+}
+
+.node-prompt-input:focus {
+	outline: none;
+	border-color: var(--user);
+}
+
+.node-prompt-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.node-prompt-send {
+	padding: 4px 10px;
+	font-size: 12px;
+}
+
+.node-prompt-hint {
+	color: var(--text-dim);
+	font-size: 10px;
 }
 
 .empty {
@@ -356,9 +393,24 @@ button.toggle.on {
 	inset: 0;
 	display: grid;
 	place-content: center;
+	justify-items: center;
+	gap: 16px;
 	margin: 0;
 	color: var(--text-dim);
 	pointer-events: none;
+}
+
+.empty p {
+	margin: 0;
+}
+
+.empty-prompt {
+	width: min(420px, calc(100vw - 48px));
+	pointer-events: auto;
+}
+
+[hidden] {
+	display: none !important;
 }
 
 .inspector {
