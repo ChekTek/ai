@@ -11,6 +11,7 @@ Code, GitHub Copilot, Pi, and OpenAI Codex.
 - `skills/` contains reusable agent skills. Each skill lives in its own
   directory with a `SKILL.md`.
 - `pi/extensions/` contains Pi-specific extensions.
+- `pi/keybindings.json` contains Pi keybinding overrides.
 - `scripts/update-config.sh` and `scripts/update-config-win.ps1` validate and
   publish those sources on macOS/Linux and Windows.
 
@@ -30,7 +31,8 @@ because they can delete files from managed config directories.
 
 ## Working Here
 
-1. Make changes in `rules/`, `skills/`, `pi/extensions/`, or both update scripts.
+1. Make changes in `rules/`, `skills/`, `pi/extensions/`, `pi/keybindings.json`,
+   or both update scripts.
 2. Preserve existing frontmatter and directory conventions.
 3. Run the update script for the current platform to validate and publish the
    configuration.

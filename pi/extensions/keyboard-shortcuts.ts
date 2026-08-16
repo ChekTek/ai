@@ -8,14 +8,13 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 const SHORTCUTS = [
 	["app.interrupt", "interrupt"],
 	["app.model.select", "models"],
-	["app.model.cycleForward", "cycle"],
 	["app.thinking.cycle", "effort"],
-	["app.thinking.toggle", "thinking"],
-	["app.tools.expand", "tools"],
 	["app.message.copy", "copy"],
 	["app.editor.external", "editor"],
-	["app.message.followUp", "follow-up"],
 ] as const;
+
+/** Status key set by `personas.ts`; shown on the cwd line above the model. */
+const PERSONA_STATUS_KEY = "persona";
 
 /** Formats a token count for the compact footer. */
 function formatTokens(count: number): string {
@@ -69,6 +68,7 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 
+		ctx.ui.setToolsExpanded(true);
 		ctx.ui.setFooter((tui, theme, footerData) => {
 			const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 
@@ -118,8 +118,22 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 					const padding = " ".repeat(Math.max(1, width - visibleWidth(statsText) - visibleWidth(visibleModel)));
 					const usageLine = truncateToWidth(`${statsText}${padding}${visibleModel}`, width, "");
 
-					const statusLines = [...footerData.getExtensionStatuses().values()]
-						.map((status) => truncateToWidth(status, width, theme.fg("dim", "...")));
+					const statuses = footerData.getExtensionStatuses();
+					const persona = statuses.get(PERSONA_STATUS_KEY);
+					const cwdText = theme.fg("dim", workingDirectory);
+					let cwdLine = truncateToWidth(cwdText, width, theme.fg("dim", "..."));
+					if (persona) {
+						const availableCwdWidth = Math.max(0, width - visibleWidth(persona) - 2);
+						const visibleCwd = truncateToWidth(cwdText, availableCwdWidth, theme.fg("dim", "..."));
+						const cwdPadding = " ".repeat(
+							Math.max(1, width - visibleWidth(visibleCwd) - visibleWidth(persona)),
+						);
+						cwdLine = truncateToWidth(`${visibleCwd}${cwdPadding}${persona}`, width, "");
+					}
+
+					const statusLines = [...statuses]
+						.filter(([key]) => key !== PERSONA_STATUS_KEY)
+						.map(([, status]) => truncateToWidth(status, width, theme.fg("dim", "...")));
 					const separator = theme.fg("borderMuted", "─".repeat(Math.max(0, width)));
 					const hintSeparator = theme.fg("dim", " · ");
 					const hints = SHORTCUTS.flatMap(([keybinding, description]) =>
@@ -127,7 +141,7 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 					);
 
 					return [
-						truncateToWidth(theme.fg("dim", workingDirectory), width, theme.fg("dim", "...")),
+						cwdLine,
 						theme.fg("dim", usageLine),
 						...statusLines,
 						separator,
