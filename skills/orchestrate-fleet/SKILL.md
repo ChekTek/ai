@@ -9,11 +9,11 @@ disable-model-invocation: true
 
 You are the parent. Split the work into **at least two** parallel `pi` children. Do not implement the task yourself. Children never spawn children. You synthesize and verify.
 
-If no family is given, pick one you are not. Default everyday: `gpt-5.6-terra` `--thinking medium`.
+If no family is given, pick one you are not.
 
 ## Roles
 
-Append as `--append-system-prompt`. Tools: scout/reviewer/oracle `read,grep,find,ls,bash`; worker adds `write,edit`.
+Append as `--append-system-prompt`. Tools: scout/reviewer/oracle `read,grep,find,ls`; worker adds `bash,write,edit`.
 
 - **scout** — recon; compressed findings another agent can use; no edits
 - **worker** — implement only the assigned slice
@@ -24,7 +24,7 @@ Default loop: scouts in parallel → workers if implementing → fresh reviewers
 
 ## Models
 
-`--provider github-copilot`. Same IDs as `orchestrate`: gpt `gpt-5.6-sol|terra|luna`; claude `claude-opus-5` / `claude-sonnet-5`; grok `grok-4.6`. Thinking `high` / `medium` / `low`.
+`--provider github-copilot`. Same IDs as `orchestrate`: gpt `gpt-5.6-sol|terra|luna`; claude `claude-opus-5` / `claude-sonnet-5`; grok `grok-4.6`. Thinking `high` / `medium` / `low`. Everyday: gpt `gpt-5.6-terra`; claude `claude-sonnet-5`; grok `grok-4.6`; all `--thinking medium`.
 
 ## Steps
 
@@ -39,6 +39,6 @@ Default loop: scouts in parallel → workers if implementing → fresh reviewers
      "Task: <prompt>"
    ```
 5. Review the combined diff and run tests/build yourself.
-6. If it fell short: one follow-up wave, then finish it yourself.
+6. If it fell short: one follow-up wave. If that still falls short, report the remaining blockers; do not implement them yourself.
 
-Report what changed and what you verified.
+Report what changed, what you verified, and any remaining blockers.
