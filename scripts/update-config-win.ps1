@@ -852,7 +852,6 @@ function Convert-RuleToGlobalLines {
 
     $relative = Get-RelativePath $RulesSrc $Rule.FullName
     $lines = @(Get-Content -LiteralPath $Rule.FullName)
-    $description = ''
     $paths = @()
     $bodyStart = 0
     $inPaths = $false
@@ -864,7 +863,6 @@ function Convert-RuleToGlobalLines {
             break
         }
         if ($line -match '^description:\s*(.*)$') {
-            $description = Remove-OuterQuotes $Matches[1]
             $inPaths = $false
             continue
         }
@@ -880,7 +878,6 @@ function Convert-RuleToGlobalLines {
     }
 
     $output = @('', "<!-- Source: rules/$relative -->")
-    if ($description) { $output += "**Description:** $description" }
     if ($paths.Count -eq 0) {
         $output += '**Applies to:** All files and tasks.'
     }

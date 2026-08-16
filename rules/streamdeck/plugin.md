@@ -1,53 +1,48 @@
 ---
-description: 'Use when working on Stream Deck plugin source code (TypeScript actions, plugin runtime, SDK integration).'
+description: 'Use when working on Stream Deck plugin source, config, or manifest.'
 paths:
-    - '{plugin*,*plugin}/src/**'
+    - '{plugin*,*plugin}/**'
+    - '**/*.sdPlugin/manifest.json'
 ---
 
 # Stream Deck Plugin Instructions
 
-Rules for the plugin source code
+## Config
+
+- Root ESLint uses `@elgato/eslint-config` with `config.strict`.
+- `@elgato/prettier-config` is a dev dependency, set in `package.json`.
+- Use pnpm, not npm. Use rolldown, not rollup.
+- Copy native dependency files into `*.sdPlugin` so they ship in the package.
 
 ## Plugin
 
-- Always set `streamDeck.settings.useExperimentalMessageIdentifiers = true;` in the `plugin.ts`
+- Set `streamDeck.settings.useExperimentalMessageIdentifiers = true;` in `plugin.ts`.
+- After rebuild, check the first 15 lines of `*.sdPlugin/logs` for critical errors.
 
-## Error Handling
+## Errors
 
-- Only action classes should handle errors so that we can use `showAlert` providing the user with feedback. Any caught error should be logged as `error`
-- Connecting services can throw errors to be handled by the action classes
+- Only action classes catch errors: log as `error` and `showAlert`. Services throw.
 
-## Check Logs
+## Actions and state
 
-- After re-building the plugin, check the first 15 lines of the log file in the `*.sdPlugin/logs` to ensure there wasn't a critical error.
+- Exactly 2 visual states: declare them in `manifest.json` and use `setState`, not `setImage`.
+- UUID changes: update `manifest.json` and every source reference.
+- UUID or settings-structure changes: ask if the plugin is in production; migrate legacy settings if so.
+- Logic used by one action: private methods on that action class.
 
-## Action States
+## Settings
 
-- If an action has exactly 2 states, use update the `manifest.json` to reflect this and call `setState` instead of relying on `setImage`.
+- `onDidReceiveSettings` / `onDidReceiveGlobalSettings` already contain stored settings. Do not call `setSettings` / `setGlobalSettings` there. The SDK caches settings; do not cache them yourself.
+- Do not use `propertyInspectorDidAppear`; use request/response via `onSendToPlugin`.
 
-## `onDidReceiveSettings` and `onDidReceiveGlobalSettings`
+## Services and shared state
 
-- Settings are already stored in these events, so there is no need to call `setSettings` or `setGlobalSettings` within these events.
+- API/connection logic: `*-service.ts` exported as `export default new FooService();`. Import it; never pass it into an action.
+- Shared state only if needed: `plugin-store.ts` exported as `export default new PluginStore();`. Import it; never pass it into an action.
 
-## Is the plugin deployed?
+## willAppear
 
-- When modifying the UUID of an action/plugin or the structure of the settings, ask the user if the plugin is deployed to production. If so, we need to handle the transition from legacy settings to the new settings structure.
-
-## Shared State
-
-- Only if a plugin needs shared state, create a `plugin-store.ts` file with a `PluginStore` class exported as `export default new PluginStore();`. Import and use it directly; never pass it into an action class.
-
-## APIs and Third Party Services
-
-- If a plugin needs to connect to an API or third party service, create a `*-service.ts` file with a class exported as `export default new FooService();`. Import and use it directly; never pass it into an action class.
-
-## Actions
-
-- For functions that are only used in 1 action prefer private methods on the action class over standalone functions
-
-## `willAppear`
-
-- If there are async startup tasks the `willAppear` event is sometimes called before these async tasks are ready. If and only if an action's `willAppear` event depends on an async value, set up a promise to be resolved when the dependency is ready. Use `withResolvers` from `@elgato/utils`. For example:
+If `willAppear` depends on an async value that may not be ready, use `withResolvers` from `@elgato/utils`:
 
 ```ts
 private apiKeyResolvers = withResolvers<string | undefined>();
@@ -61,16 +56,15 @@ public setApiKey(apiKey?: string): void {
 }
 ```
 
-## Icon Style
+## Icons
 
-- If the repo already has icons, use the existing style for new icons. Typically `svg`, reuse portions and colors from existing icons where it makes sense. Key icons and action icons should maintain a consistent style across the plugin. Action list icons should be white.
+- Match existing SVG style, colors, and pieces. Key and action icons stay consistent. Action list icons are white.
 
-## Native Code Required
+## Native addons
 
-- If native code is required for functionality it should be a node.js addon (NAPI), so that we don't create a separate process from the plugin unless absolutely necessary. If possible prefer rust otherwise c++.
+- Prefer a Node NAPI addon (Rust, else C++) over a separate process.
 
-## Settings
+## Libraries
 
-- `setSettings` does not need to be called inside of `onDidReceiveSettings` because the settings are already persisted, so this code is redundant.
-- there is no need to cache settings because the sdk does this automatically
-- do not use `propertyInspectorDidAppear`, instead use a request and response via `onSendToPlugin`
+- Event emitter: `@elgato/utils`
+- Image manipulation: `@resvg/resvg-js`

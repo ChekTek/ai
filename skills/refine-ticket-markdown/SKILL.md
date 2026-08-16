@@ -25,21 +25,13 @@ Treat existing comments as prior discussion that may already answer questions.
 
 ## 2. Investigate before asking
 
-Explore the code the ticket touches so questions are informed, not generic.
-The code is the source of truth — verify the ticket's claims against actual
-behavior and surface mismatches instead of assuming the ticket is right.
+Explore the code the ticket touches. Code is the source of truth — surface mismatches instead of assuming the ticket is right.
 
 ## 3. Ask questions until the plan is clear
 
-Treat the conversation as the refinement work: ask one focused question at a
-time, explain why it matters, and use a question tool with choices when
-available. Recommend a strong default first when one exists.
+Ask one focused question at a time; use a question tool with a recommended default.
 
-Ask about what is actually unresolved — scope boundaries, user-facing
-behavior, edge cases, data and API contracts, affected surfaces, migration —
-not a generic checklist. Skip anything already answered by the ticket,
-comments, or code. Stop when the remaining unknowns are implementation-time
-discoveries rather than product decisions.
+Ask what is actually unresolved (scope, user-facing behavior, edge cases, contracts, surfaces, migration). Skip anything already answered. Stop when leftovers are implementation-time discoveries, not product decisions.
 
 ## 4. Produce the comment
 

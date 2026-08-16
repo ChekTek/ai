@@ -838,7 +838,6 @@ append_global_rule() {
   awk '
     NR == 1 && $0 == "---" { in_frontmatter = 1; next }
     in_frontmatter && $0 == "---" {
-      if (description != "") print "**Description:** " description
       if (path_count == 0) {
         print "**Applies to:** All files and tasks."
       } else {
@@ -855,13 +854,6 @@ append_global_rule() {
     }
     in_frontmatter {
       if ($0 ~ /^description:/) {
-        description = $0
-        sub(/^description:[[:space:]]*/, "", description)
-        first = substr(description, 1, 1)
-        last = substr(description, length(description), 1)
-        if ((first == "\"" && last == "\"") || (first == "\047" && last == "\047")) {
-          description = substr(description, 2, length(description) - 2)
-        }
         in_paths = 0
         next
       }
