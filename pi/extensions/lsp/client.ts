@@ -233,6 +233,7 @@ class LspClient {
 			cwd: this.#cwd,
 			env: process.env,
 			stdio: "pipe",
+			windowsVerbatimArguments: spawnCommand.windowsVerbatimArguments,
 		});
 		this.#child = child;
 		child.stdout.on("data", (chunk: Buffer) => {
@@ -271,7 +272,7 @@ class LspClient {
 			capabilities: {
 				textDocument: {
 					diagnostic: { dynamicRegistration: false, relatedDocumentSupport: true },
-					publishDiagnostics: {},
+					publishDiagnostics: { versionSupport: true },
 					synchronization: { didSave: true },
 				},
 				workspace: {
@@ -320,14 +321,14 @@ class LspClient {
 		});
 		const result = asRecord(response.result);
 		const diagnostics = asDiagnostics(result?.items);
-		if (diagnostics.length > 0 || !this.#server.pullDiagnosticsGraceMs) return diagnostics;
-		return this.#waitForPublished(
+		if (!this.#server.pullDiagnosticsGraceMs) return diagnostics;
+		const published = await this.#waitForPublished(
 			uri,
 			afterVersion,
 			this.#server.pullDiagnosticsGraceMs,
 			signal,
-			diagnostics,
 		);
+		return mergeDiagnostics(diagnostics, published);
 	}
 
 	#waitForPublished(
@@ -335,7 +336,6 @@ class LspClient {
 		afterVersion: number,
 		graceMs: number | undefined,
 		signal: AbortSignal | undefined,
-		fallback: LspDiagnostic[] = [],
 	): Promise<LspDiagnostic[]> {
 		return new Promise((resolve, reject) => {
 			let done = false;
@@ -376,23 +376,13 @@ class LspClient {
 			if (graceMs) {
 				graceTimer = setTimeout(() => {
 					const latest = this.#published.get(uri);
-					finish(
-						latest && latest.version > afterVersion ? latest.diagnostics : fallback,
-					);
+					finish(latest && latest.version > afterVersion ? latest.diagnostics : []);
 				}, Math.min(graceMs, TIMEOUT_MS));
 			}
 
 			overallTimer = setTimeout(() => {
 				const latest = this.#published.get(uri);
-				if (latest && latest.version > afterVersion) {
-					finish(latest.diagnostics);
-					return;
-				}
-				if (graceMs) {
-					finish(fallback);
-					return;
-				}
-				finish([]);
+				finish(latest && latest.version > afterVersion ? latest.diagnostics : []);
 			}, TIMEOUT_MS);
 
 			const existing = this.#published.get(uri);
@@ -492,6 +482,15 @@ class LspClient {
 			const params = asRecord(message.params);
 			const uri = typeof params?.uri === "string" ? params.uri : undefined;
 			if (!uri) return;
+			const publishedVersion = typeof params?.version === "number" ? params.version : undefined;
+			const openVersion = this.#documents.get(uri);
+			if (
+				publishedVersion !== undefined &&
+				openVersion !== undefined &&
+				publishedVersion !== openVersion
+			) {
+				return;
+			}
 			const previous = this.#published.get(uri)?.version ?? 0;
 			const publication = {
 				version: previous + 1,
@@ -584,6 +583,32 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 function asDiagnostics(value: unknown): LspDiagnostic[] {
 	if (!Array.isArray(value)) return [];
 	return value.filter(isDiagnostic);
+}
+
+function mergeDiagnostics(pulled: LspDiagnostic[], published: LspDiagnostic[]) {
+	const merged: LspDiagnostic[] = [];
+	const seen = new Set<string>();
+	for (const diagnostic of [...pulled, ...published]) {
+		const key = diagnosticKey(diagnostic);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		merged.push(diagnostic);
+	}
+	return merged;
+}
+
+function diagnosticKey(diagnostic: LspDiagnostic) {
+	const { start, end } = diagnostic.range;
+	return [
+		start.line,
+		start.character,
+		end.line,
+		end.character,
+		diagnostic.severity ?? "",
+		diagnostic.code ?? "",
+		diagnostic.source ?? "",
+		diagnostic.message,
+	].join("\0");
 }
 
 function isDiagnostic(value: unknown): value is LspDiagnostic {
