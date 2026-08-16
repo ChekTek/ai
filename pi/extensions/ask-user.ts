@@ -11,8 +11,8 @@ const OTHER_LABEL = "Type something.";
 /** Description shown under the custom-answer row. */
 const OTHER_DESCRIPTION = "Write a custom answer";
 
-/** Option labels the model must not include; the UI appends the custom row. */
-const RESERVED_LABELS = new Set(["other", "type something", "type something."]);
+/** Canonical reserved names after punctuation is stripped. The UI appends the custom row. */
+const RESERVED_LABELS = new Set(["other", "type something"]);
 
 /** Digit keys that jump the highlight to a numbered option. At most 4 options plus Type something. */
 const OPTION_DIGITS = ["1", "2", "3", "4", "5"] as const;
@@ -36,9 +36,29 @@ const AskUserParams = Type.Object({
 	}),
 });
 
+/** Lowercases a label and strips punctuation so "Other." matches the reserved name. */
+function normalizeLabel(label: string): string {
+	return label
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+}
+
 /** Returns whether a model-authored option label collides with the custom row. */
 function isReservedLabel(label: string): boolean {
-	return RESERVED_LABELS.has(label.trim().toLowerCase());
+	return RESERVED_LABELS.has(normalizeLabel(label));
+}
+
+/** Returns a repeated option label, comparing trimmed text so the returned answer is unambiguous. */
+function findDuplicateLabel(options: AskUserOption[]): string | undefined {
+	const seen = new Set<string>();
+	for (const option of options) {
+		const label = option.label.trim();
+		if (seen.has(label)) return option.label;
+		seen.add(label);
+	}
+	return undefined;
 }
 
 /** Prefixes a 1-based index onto a visible option label. */
@@ -143,7 +163,7 @@ async function selectInDialogs(
 	const dialogOpts = signal ? { signal } : undefined;
 	const title = context ? `${context} — ${question}` : question;
 	const displays = options.map((option, index) => `${numberedLabel(index, option.label)} — ${option.description}`);
-	displays.push(numberedLabel(options.length, OTHER_LABEL));
+	displays.push(`${numberedLabel(options.length, OTHER_LABEL)} — ${OTHER_DESCRIPTION}`);
 
 	const selected = await ctx.ui.select(title, displays, dialogOpts);
 	if (!selected) return null;
@@ -221,8 +241,20 @@ export default function askUserExtension(pi: ExtensionAPI): void {
 					context,
 					null,
 					false,
-					true,
+					false,
 					`Error: option label "${reserved.label}" is reserved. Do not author Other or Type something; the UI adds that row.`,
+				);
+			}
+
+			const duplicate = findDuplicateLabel(params.options);
+			if (duplicate) {
+				return askUserResult(
+					question,
+					context,
+					null,
+					false,
+					false,
+					`Error: duplicate option label "${duplicate}". Each option must have a unique label.`,
 				);
 			}
 
@@ -236,7 +268,7 @@ export default function askUserExtension(pi: ExtensionAPI): void {
 					context,
 					null,
 					false,
-					true,
+					false,
 					"Error: UI is not available (non-interactive mode). The user never saw the question — do NOT treat this as a decline. Ask in chat instead.",
 				);
 			}
@@ -267,8 +299,12 @@ export default function askUserExtension(pi: ExtensionAPI): void {
 
 		renderResult(result, _options, theme) {
 			const details = result.details;
-			if (!details || details.cancelled || details.answer === null) {
+			if (!details || details.cancelled) {
 				return new Text(theme.fg("warning", "Cancelled"), 0, 0);
+			}
+			if (details.answer === null) {
+				const message = result.content?.[0]?.text?.split("\n")[0] || "Error";
+				return new Text(theme.fg("error", `✗ ${message}`), 0, 0);
 			}
 			if (details.wasCustom) {
 				return new Text(
