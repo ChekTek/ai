@@ -59,6 +59,9 @@ $OpenCodeLegacyRulesDest = Join-Path $OpenCodeRoot 'AGENTS.md'
 $OpenCodeContextManagerDest = Join-Path $OpenCodeRoot 'context-manager.ts'
 $OpenCodeTuiPluginDest = Join-Path $OpenCodeRoot 'context-report-tui.ts'
 $OpenCodeTuiConfigDest = Join-Path $OpenCodeRoot 'tui.jsonc'
+# npm has only published through 0.2.0; v0.3.3 is the GitHub tag this setup pins.
+$PiCursorSdkPackage = 'git:github.com/fitchmultz/pi-cursor-sdk@v0.3.3'
+$PiCursorSdkInstall = Join-Path $HOME '.pi\agent\git\github.com\fitchmultz\pi-cursor-sdk'
 
 function Get-TargetMetadata {
     param([string] $Path)
@@ -494,6 +497,27 @@ function Publish-PiExtensions {
         if ($linkExists) { return }
         Remove-LinkItem $_
         Write-Host "removed stale: pi/extensions/$($_.Name)"
+    }
+}
+
+function Install-PiCursorSdkPackage {
+    if (-not (Get-Command pi -ErrorAction SilentlyContinue)) {
+        Write-Host "skip ${PiCursorSdkPackage}: pi is not on PATH"
+        return
+    }
+
+    $settingsPath = Join-Path $HOME '.pi\agent\settings.json'
+    if ((Test-Path -LiteralPath $PiCursorSdkInstall) -and (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
+        $settingsText = Get-Content -LiteralPath $settingsPath -Raw
+        if ($settingsText -like "*${PiCursorSdkPackage}*") {
+            Write-Host "already installed: $PiCursorSdkPackage"
+            return
+        }
+    }
+
+    & pi install $PiCursorSdkPackage
+    if ($LASTEXITCODE -ne 0) {
+        throw "failed to install $PiCursorSdkPackage"
     }
 }
 
@@ -956,6 +980,7 @@ Publish-Skills $CopilotSkillsDest 'copilot/skills' 'copilot'
 Publish-Skills $PiSkillsDest 'pi/skills' 'pi'
 Publish-Skills $CodexSkillsDest 'codex/skills' 'codex'
 Publish-PiExtensions
+Install-PiCursorSdkPackage
 Publish-PiThemes
 Publish-PiKeybindings
 Publish-Rules $ClaudeRulesDest 'claude/rules' 'claude'
