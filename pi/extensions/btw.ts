@@ -37,9 +37,8 @@ function extractText(message: { content?: Array<{ type: string; text?: string }>
 	return chunks.join("");
 }
 
-/** Shows a notification when the current Pi session has a UI. */
+/** Shows a notification from the current Pi session UI. */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "error"): void {
-	if (!ctx.hasUI) return;
 	ctx.ui.notify(message, type);
 }
 
@@ -104,13 +103,13 @@ class BtwOverlay implements Component, Focusable {
 			return;
 		}
 
-		if (matchesKey(data, Key.pageUp) || matchesKey(data, Key.up)) {
-			this.scrollTranscript(matchesKey(data, Key.pageUp) ? -Math.max(1, this.transcriptViewportHeight - 1) : -1);
+		if (matchesKey(data, Key.pageUp)) {
+			this.scrollTranscript(-Math.max(1, this.transcriptViewportHeight - 1));
 			return;
 		}
 
-		if (matchesKey(data, Key.pageDown) || matchesKey(data, Key.down)) {
-			this.scrollTranscript(matchesKey(data, Key.pageDown) ? Math.max(1, this.transcriptViewportHeight - 1) : 1);
+		if (matchesKey(data, Key.pageDown)) {
+			this.scrollTranscript(Math.max(1, this.transcriptViewportHeight - 1));
 			return;
 		}
 
