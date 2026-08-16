@@ -42,13 +42,8 @@ export function createWebFetchTool(composition?: WebFetchToolComposition) {
 	return {
 		name: "webfetch",
 		label: "Web Fetch",
-		description:
-			"Fetch a single URL and return readable markdown, text, raw HTML/source, or an inline raster image.",
-		promptSnippet: "Fetch one public URL as markdown, text, html, or an inline raster image",
-		promptGuidelines: [
-			"Use webfetch when the user provides a URL or after websearch identifies a page to inspect.",
-			"Prefer webfetch format=markdown unless the user explicitly wants plain text or raw source.",
-		],
+		description: "Fetch a public URL as markdown, text, or an inline image.",
+		promptSnippet: "Fetch one public URL as markdown, text, or an inline image",
 		parameters: Type.Object({
 			url: Type.String({ description: "The http:// or https:// URL to fetch." }),
 			format: Type.Optional(

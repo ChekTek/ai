@@ -247,18 +247,16 @@ The update scripts run `npm install` in the extension folder before linking it,
 so `node_modules/` is generated locally and ignored by Git while
 `package-lock.json` is tracked.
 
-`webfetch` works without configuration. `websearch` needs an Exa MCP-compatible
-endpoint exported before Pi starts, otherwise the tool fails when it is first
-called:
+`webfetch` works without configuration. `websearch` uses Exa's public MCP
+endpoint (`https://mcp.exa.ai/mcp`) by default. Override it with
+`PI_WEB_TOOLS_EXA_ENDPOINT` if you run a different Exa-compatible MCP server.
+If Exa rate-limits (HTTP 429), search falls back to DuckDuckGo's keyless HTML
+results. Large tool output is truncated in the session; the full text is saved
+to a temp file and the model can `read` that path.
 
 ```bash
-export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"
+export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"  # optional override
 ```
-
-Pi reads this from the environment of the process that launches it, so a
-GUI-launched editor using the ACP integration does not inherit a shell profile.
-Set it where that process can see it, or start the editor from a shell that
-exports it.
 
 Extensions resolve once at startup, so restart Pi after publishing a new one.
 

@@ -24,10 +24,13 @@ export const SEARCH_TIMEOUT_SECONDS = {
 } as const;
 
 export const SEARCH_MAX_RESULTS = {
-	default: 8,
+	default: 5,
 	min: 1,
 	max: 20,
 } as const;
+
+export const TOOL_OUTPUT_MAX_BYTES = 8 * 1024;
+export const TOOL_OUTPUT_MAX_LINES = 80;
 
 export const FETCH_MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 export const FETCH_MAX_REDIRECTS = 5;
@@ -93,6 +96,7 @@ export function parseEnumSetting<T extends string>(
 }
 
 export const EXA_ENDPOINT_ENVIRONMENT_VARIABLE = "PI_WEB_TOOLS_EXA_ENDPOINT";
+export const DEFAULT_EXA_MCP_ENDPOINT = "https://mcp.exa.ai/mcp";
 
 /** Return web fetch settings that do not depend on search provider configuration. */
 export function getWebFetchSettings(): WebToolsSettings["fetch"] {
@@ -106,16 +110,11 @@ export function getWebFetchSettings(): WebToolsSettings["fetch"] {
 	};
 }
 
-/** Parse Exa search settings from the process environment. */
+/** Parse Exa search settings from the process environment, defaulting to Exa's public MCP endpoint. */
 export function getWebSearchSettings(
 	environment: Readonly<Record<string, string | undefined>> = process.env,
 ): WebToolsSettings["search"] {
-	const endpoint = environment[EXA_ENDPOINT_ENVIRONMENT_VARIABLE];
-	if (!endpoint?.trim()) {
-		throw new Error(
-			`Pi Web Tools configuration error: ${EXA_ENDPOINT_ENVIRONMENT_VARIABLE} is required for websearch`,
-		);
-	}
+	const endpoint = environment[EXA_ENDPOINT_ENVIRONMENT_VARIABLE]?.trim() || DEFAULT_EXA_MCP_ENDPOINT;
 
 	return {
 		enabled: true,
