@@ -26,6 +26,9 @@ pi/
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
 │   ├── personas.ts
+│   ├── lsp.ts
+│   ├── lsp/
+│   │   └── extension.ts
 │   ├── web-tools.ts
 │   ├── web-tools/
 │   │   └── extension.ts
@@ -272,6 +275,47 @@ export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"  # optional override
 ```
 
 Extensions resolve once at startup, so restart Pi after publishing a new one.
+
+### Pi LSP
+
+The `pi/extensions/lsp.ts` entry point plus the `pi/extensions/lsp/` directory
+append language-server errors onto built-in `write` and `edit` results. There is
+no extra model tool. The project build remains the authoritative check; LSP is
+incremental feedback for the file that was just changed.
+
+Same entry-point layout as Pi Web Tools: the wrapper is the single
+registration so both Pi and `pi-acp` load the extension once.
+
+Servers start lazily when a matching file is written or edited, stay up for the
+session, and shut down when the session ends. Missing binaries are skipped
+quietly. `/lsp` prints PATH and process status; it is not sent to the model.
+
+Errors only, one line each, capped at 20. Clean edits add nothing.
+
+| Server | Command | Extensions |
+|---|---|---|
+| typescript | `typescript-language-server --stdio` | `.ts` `.tsx` `.js` `.jsx` `.mts` `.cts` `.mjs` `.cjs` |
+| mdx | `mdx-language-server --stdio` | `.mdx` |
+| astro | `astro-ls --stdio` | `.astro` |
+| biome | `biome lsp-proxy` | `.css` `.html` `.json` `.jsonc` |
+| dart | `dart language-server` | `.dart` |
+| rust-analyzer | `rust-analyzer` | `.rs` |
+| clangd | `clangd --background-index --clang-tidy` | `.c` `.cpp` `.cc` `.cxx` `.h` `.hpp` `.mm` |
+
+Biome is not run on JavaScript or TypeScript; type errors come from
+`typescript-language-server`. Commands must already be on `PATH`. This
+extension does not download language servers.
+
+```bash
+npm install -g typescript typescript-language-server
+npm install -g @mdx-js/language-server
+npm install -g @astrojs/language-server
+npm install -g @biomejs/biome
+rustup component add rust-analyzer rust-src
+```
+
+Dart needs the Dart SDK (`dart` on `PATH`). clangd needs a C/C++ toolchain;
+project `compile_commands.json` improves results. Restart Pi after publishing.
 
 ### Pi Flow
 
