@@ -6,6 +6,7 @@ paths:
 
 # TypeScript Instructions
 
+- Use pnpm, not npm.
 - If a type can be inferred, do not write it. Do not use `any` or `unknown` unless necessary.
 - Single-use types stay in that implementation file, at the bottom.
 - `try/catch/finally` over `.catch()`. `async/await` over `.then()`.

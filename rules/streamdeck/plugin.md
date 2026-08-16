@@ -11,7 +11,6 @@ paths:
 
 - Root ESLint uses `@elgato/eslint-config` with `config.strict`.
 - `@elgato/prettier-config` is a dev dependency, set in `package.json`.
-- Use pnpm, not npm. Use rolldown, not rollup.
 - Copy native dependency files into `*.sdPlugin` so they ship in the package.
 
 ## Plugin

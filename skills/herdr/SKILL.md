@@ -30,11 +30,11 @@ Default: sibling pane in this tab, this cwd. No new workspace/tab/worktree unles
 ```bash
 herdr pane layout --pane "$HERDR_PANE_ID"
 herdr pane split --current --direction right --cwd "$PWD" --no-focus
-herdr agent start reviewer --kind codex --pane <pane-id>
+herdr agent start reviewer --kind <kind> --pane <pane-id>
 herdr agent prompt reviewer "..." --wait --timeout 120000
 ```
 
-`--wait` settles on idle/done/blocked. Use `--until` only for a specific state. Keys: `herdr agent send-keys reviewer esc`. Inspect: `herdr agent get` / `herdr agent read --source recent-unwrapped`.
+Use the kind the user requested (`herdr agent` lists installed kinds). `--wait` settles on idle/done/blocked. Use `--until` only for a specific state. Keys: `herdr agent send-keys reviewer esc`. Inspect: `herdr agent get` / `herdr agent read --source recent-unwrapped`.
 
 If raising `--lines` does not reveal more of a finished response, the agent is likely on the alternate screen — ask it to write Markdown to a temp file and return the path.
 

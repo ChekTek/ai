@@ -1,6 +1,6 @@
 ---
 name: orchestrate-grok
-description: "Delegate coding work to Grok 4.5 through the Copilot CLI. Use when you want a Grok worker instead of doing the work yourself."
+description: "Delegate coding work to Grok 4.6 through the Copilot CLI. Use when you want a Grok worker instead of doing the work yourself."
 argument-hint: "[task or goal]"
 disable-model-invocation: true
 ---
@@ -14,6 +14,6 @@ copilot -C <repo> --model=<model> <model-flags> --prompt <prompt> \
   --allow-all-tools --no-ask-user --stream=off --silent
 ```
 
-- complex: `grok-4.5 --effort high --mode autopilot --max-autopilot-continues 15`
-- everyday: `grok-4.5 --effort medium --mode autopilot`
-- light: `grok-4.5 --effort low`
+- complex: `grok-4.6 --effort high --mode autopilot --max-autopilot-continues 15`
+- everyday: `grok-4.6 --effort medium --mode autopilot`
+- light: `grok-4.6 --effort low`
