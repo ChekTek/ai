@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Build for Pi
 
-The personas extension strips Pi's built-in self-documentation from the system prompt. Invoking this skill restores that block, with absolute paths for this install, for the rest of the session.
+The personas extension strips Pi's built-in self-documentation from the default system prompt. Invoking this skill restores that block, with absolute paths for this install, for the rest of the session. Custom `--system-prompt` / `SYSTEM.md` prompts without Pi's default identity are left unchanged.
 
 Read Pi docs only when working on Pi itself, its SDK, extensions, themes, skills, or TUI.
 
