@@ -1,10 +1,10 @@
 # AI Configuration
 
 User-level coding instructions and skills shared across **Claude Code**,
-**GitHub Copilot**, **Pi**, **OpenAI Codex**, and **OpenCode**, plus Pi extensions and themes.
+**GitHub Copilot**, **Pi**, **OpenAI Codex**, and **OpenCode**, plus Pi extensions, themes, and keybindings.
 
-The root `rules/`, `skills/`, `pi/extensions/`, `pi/themes/`, and `opencode/`
-folders are the source of truth. The update scripts validate and publish them in the native
+The root `rules/`, `skills/`, `pi/extensions/`, `pi/themes/`, `pi/keybindings.json`,
+and `opencode/` folders are the source of truth. The update scripts validate and publish them in the native
 user/global format each harness expects.
 
 ## Source Layout
@@ -19,9 +19,11 @@ skills/
 └── refine-ticket/
     └── SKILL.md
 pi/
+├── keybindings.json
 ├── extensions/
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
+│   ├── personas.ts
 │   ├── web-tools.ts
 │   ├── web-tools/
 │   │   └── extension.ts
@@ -119,13 +121,13 @@ it.
 |---|---|---|---|
 | Claude Code | `~/.claude/skills` | `~/.claude/rules` | — |
 | GitHub Copilot | `~/.copilot/skills` | `~/.copilot/instructions/*.instructions.md` | — |
-| Pi | `~/.pi/agent/skills` | `~/.pi/agent/rules` | `~/.pi/agent/extensions`, `~/.pi/agent/themes` |
+| Pi | `~/.pi/agent/skills` | `~/.pi/agent/rules` | `~/.pi/agent/extensions`, `~/.pi/agent/themes`, `~/.pi/agent/keybindings.json` |
 | OpenAI Codex | `$CODEX_HOME/skills`, or `~/.codex/skills` | `$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` | — |
 | OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/commands` | `${XDG_CONFIG_HOME:-~/.config}/opencode/rules` | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins`, plus TUI plugin config |
 
-Skills, Pi extensions, and Pi themes are linked directly to their canonical
-sources. Pi extensions and themes are Pi-specific and do not use
-`metadata.targets`. Codex skills
+Skills, Pi extensions, Pi themes, and Pi keybindings are linked directly to their
+canonical sources. Pi extensions, themes, and keybindings are Pi-specific and do
+not use `metadata.targets`. Codex skills
 use its private `$CODEX_HOME/skills` location rather than the shared
 `~/.agents/skills`, because Pi also discovers the shared location and would see
 Codex-only skills. Claude rules are also linked directly. Copilot rules are
@@ -171,6 +173,32 @@ conversation, active tool definitions, injected and excluded rules,
 agent-visible skills, Pi context files, and context-manager contribution.
 User-only skills are omitted because they are not part of the model context.
 Select a row to see details.
+
+### Pi Personas
+
+`pi/extensions/personas.ts` swaps only the default coding-assistant identity
+for the current session. Tools, guidelines, and project context stay as Pi
+built them. Custom `--system-prompt` / `SYSTEM.md` prompts are left alone
+when they do not contain Pi's default identity sentence.
+
+```text
+/persona              open the picker (TUI)
+/persona developer    coding assistant (session default)
+/persona designer     design work such as layouts, visual systems, copy, and specifications
+/persona general      helpful assistant for research and general work
+```
+
+The choice resets to `developer` on each new session. The footer shows
+`persona:<name>` on the right of the working-directory line, above the model.
+Changing persona mid-session asks whether to compact when the session already
+has chat messages, because the new identity already busts the prompt-cache
+prefix.
+
+The extension also removes Pi's built-in self-documentation from the system
+prompt. Restore it for the rest of the session with `/skill:build-for-pi`.
+That skill is published to all harnesses and defaults to `user only`
+(`disable-model-invocation: true`), so it is not in the model's initial
+context until you invoke it.
 
 The scripts will not overwrite an unmanaged Codex `AGENTS.md`, because silently
 doing so would destroy user instructions. Pi leaves unmanaged `AGENTS.md` files
@@ -284,6 +312,16 @@ Themes in `pi/themes/` are linked to `~/.pi/agent/themes`. This repository
 includes the dark `nord` theme. Run the update script, then select `nord` in
 Pi's `/settings`.
 
+### Pi Keybindings
+
+`pi/keybindings.json` is linked to `~/.pi/agent/keybindings.json`. It unbinds
+`app.thinking.toggle` (`ctrl+t`), `app.tools.expand` (`ctrl+o`), model cycling
+(`ctrl+p` / `shift+ctrl+p`), and follow-up queueing (`alt+enter`) so thinking
+and tool output stay visible, model changes go through the selector
+(`ctrl+l`), and messages sent while the agent is working always steer. The
+footer shortcut list omits those actions as well, and tool output is expanded
+on session start. Run the update script, then `/reload` or restart Pi.
+
 [pi-web-tools]: https://github.com/dmmulroy/pi-web-tools
 
 ## Starting Fresh
@@ -305,6 +343,7 @@ not created by this repo:
 - `~/.pi/agent/skills`
 - `~/.pi/agent/extensions`
 - `~/.pi/agent/themes`
+- `~/.pi/agent/keybindings.json`
 - `~/.pi/agent/rules`
 - `$CODEX_HOME/skills`, or `~/.codex/skills`
 - `${XDG_CONFIG_HOME:-~/.config}/opencode/commands`
