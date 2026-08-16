@@ -26,8 +26,8 @@ pi/
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
 │   ├── personas.ts
-│   ├── lsp.ts
-│   ├── lsp/
+│   ├── cursor-login.ts
+│   ├── cursor-login/
 │   │   └── extension.ts
 │   ├── web-tools.ts
 │   ├── web-tools/
@@ -113,8 +113,10 @@ be created:
 
 Re-run the script after changing targets, adding files, or pulling updates.
 Links owned by this repo and generated files are refreshed; unrelated files are
-left untouched. Runtime dependencies declared by local Pi extension directories
-are installed with lifecycle scripts disabled. Directories with a
+left untouched. If `pi` is on PATH, the scripts also pin-install
+`git:github.com/fitchmultz/pi-cursor-sdk@v0.3.3` into user Pi packages. Runtime dependencies declared
+by local Pi extension directories are installed with lifecycle scripts disabled.
+Directories with a
 `pnpm-lock.yaml` are installed with `pnpm install --prod --frozen-lockfile`;
 the rest use `npm install --omit=dev`. Both prune devDependencies, so run
 `pnpm install` or `npm install` again in an extension folder before working on
@@ -126,7 +128,7 @@ it.
 |---|---|---|---|
 | Claude Code | `~/.claude/skills` | `~/.claude/rules` | — |
 | GitHub Copilot | `~/.copilot/skills` | `~/.copilot/instructions/*.instructions.md` | — |
-| Pi | `~/.pi/agent/skills` | `~/.pi/agent/rules` | `~/.pi/agent/extensions`, `~/.pi/agent/themes`, `~/.pi/agent/keybindings.json` |
+| Pi | `~/.pi/agent/skills` | `~/.pi/agent/rules` | `~/.pi/agent/extensions`, `~/.pi/agent/themes`, `~/.pi/agent/keybindings.json`, plus `pi-cursor-sdk` in `~/.pi/agent/settings.json` packages |
 | OpenAI Codex | `$CODEX_HOME/skills`, or `~/.codex/skills` | `$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` | — |
 | OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/commands` | `${XDG_CONFIG_HOME:-~/.config}/opencode/rules` | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins`, plus TUI plugin config |
 
@@ -203,6 +205,41 @@ The extension also removes Pi's built-in self-documentation from that default
 prompt. Restore it for the rest of the session with `/skill:build-for-pi`.
 That skill defaults to `user only` (`disable-model-invocation: true`), so it
 is not in the model's initial context until you invoke it.
+
+### Pi Cursor
+
+The update scripts pin-install `git:github.com/fitchmultz/pi-cursor-sdk@v0.3.3`
+as a Pi package so Cursor appears in `/login` next to the built-in providers. That package runs
+Cursor models through `@cursor/sdk` (local agent loop by default) and bills
+against the same Cursor plan pools as the IDE. Composer and Grok use the
+Cursor Models pool; other models selected through Cursor use Other Models.
+
+`pi/extensions/cursor-login.ts` plus `pi/extensions/cursor-login/` add
+subscription-style browser login via `Cursor.auth.login()`. It merges OAuth
+onto the `cursor` provider without replacing pi-cursor-sdk's models or stream
+handler. The wrapper sits next to the directory for the same pi-acp reason as
+web-tools.
+
+Authenticate with any of:
+
+```text
+/login                  then Cursor (browser), or Use an API key → Cursor
+export CURSOR_API_KEY=key_xxxxxxxx  then start pi
+```
+
+Browser login mints a user API key (about 90 days) and stores it in Pi's
+`~/.pi/agent/auth.json`. It does not reuse Cursor Desktop or `agent login`.
+After the first login, run `/cursor-refresh-models` if `/model` still shows
+only fallback Cursor models.
+
+Cursor turns use Cursor's tools, settings, and MCP. Pi tools are bridged only
+when that package's local MCP bridge is on, which is different from Anthropic
+or OpenAI in Pi.
+
+```bash
+pi --list-models cursor
+pi --model cursor/composer-2-5
+```
 
 The scripts will not overwrite an unmanaged Codex `AGENTS.md`, because silently
 doing so would destroy user instructions. Pi leaves unmanaged `AGENTS.md` files
