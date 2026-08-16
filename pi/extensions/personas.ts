@@ -45,7 +45,7 @@ const PERSONA_NAMES = Object.keys(PERSONAS) as Persona[];
 
 /** Returns whether a command argument is a known persona. */
 function isPersona(value: string): value is Persona {
-	return value in PERSONAS;
+	return Object.hasOwn(PERSONAS, value);
 }
 
 /** Builds Pi's documentation block with paths from this install. */
@@ -60,8 +60,16 @@ function formatPiDocumentation(): string {
 - Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
 }
 
-/** Applies the active persona and optional restored Pi docs to a system prompt. */
+/**
+ * Applies the active persona and optional restored Pi docs to Pi's default
+ * system prompt. Custom `--system-prompt` / `SYSTEM.md` text is returned
+ * unchanged unless it contains the default identity sentence.
+ */
 function applyPersonaPrompt(systemPrompt: string, persona: Persona, restorePiDocs: boolean): string {
+	if (!systemPrompt.includes(PERSONAS.developer.identity)) {
+		return systemPrompt;
+	}
+
 	let prompt = systemPrompt.replace(PERSONAS.developer.identity, PERSONAS[persona].identity);
 	prompt = prompt.replace(PI_DOCS_BLOCK, "");
 	const hasPiDocs = prompt.includes("Pi documentation (read only when the user asks about pi itself");

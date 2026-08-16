@@ -194,7 +194,7 @@ Changing persona mid-session asks whether to compact when the session already
 has chat messages, because the new identity already busts the prompt-cache
 prefix.
 
-The extension also removes Pi's built-in self-documentation from the system
+The extension also removes Pi's built-in self-documentation from that default
 prompt. Restore it for the rest of the session with `/skill:build-for-pi`.
 That skill is published to all harnesses and defaults to `user only`
 (`disable-model-invocation: true`), so it is not in the model's initial
