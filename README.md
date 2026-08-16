@@ -196,7 +196,7 @@ prefix.
 
 The extension also removes Pi's built-in self-documentation from that default
 prompt. Restore it for the rest of the session with `/skill:build-for-pi`.
-That skill is published to all harnesses and defaults to `user only`
+That skill is published only to Pi and defaults to `user only`
 (`disable-model-invocation: true`), so it is not in the model's initial
 context until you invoke it.
 
@@ -343,7 +343,7 @@ not created by this repo:
 - `~/.pi/agent/skills`
 - `~/.pi/agent/extensions`
 - `~/.pi/agent/themes`
-- `~/.pi/agent/keybindings.json`
+- `~/.pi/agent/keybindings.json` when managed by this repo
 - `~/.pi/agent/rules`
 - `$CODEX_HOME/skills`, or `~/.codex/skills`
 - `${XDG_CONFIG_HOME:-~/.config}/opencode/commands`

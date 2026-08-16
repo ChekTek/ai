@@ -291,11 +291,14 @@ function Invoke-Clean {
             @{ Path = $OpenCodeContextManagerDest; Label = 'opencode/context-manager.ts' }
             @{ Path = $OpenCodeTuiPluginDest; Label = 'opencode/context-report-tui.ts' }
             @{ Path = $OpenCodeTuiConfigDest; Label = 'opencode/tui.jsonc' }
-            @{ Path = $PiKeybindingsDest; Label = 'pi/keybindings.json' }
         )) {
             if ((Test-OwnedLink $extension.Path) -or (Test-GeneratedFile $extension.Path)) {
                 [pscustomobject]@{ Name = $extension.Label; Path = $extension.Path }
             }
+        }
+
+        if (Test-OwnedLink $PiKeybindingsDest) {
+            [pscustomobject]@{ Name = 'pi/keybindings.json'; Path = $PiKeybindingsDest }
         }
     )
 
