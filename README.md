@@ -223,7 +223,7 @@ Authenticate with any of:
 
 ```text
 /login                  then Cursor (browser), or Use an API key → Cursor
-export CURSOR_API_KEY=  then start pi
+export CURSOR_API_KEY=key_xxxxxxxx  then start pi
 ```
 
 Browser login mints a user API key (about 90 days) and stores it in Pi's
