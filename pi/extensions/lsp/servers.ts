@@ -127,16 +127,27 @@ export function resolveCommandPath(command: string, cwd: string): string | undef
 
 /**
  * Wraps `.bat`/`.cmd` launches on Windows so they run through `cmd.exe`.
+ * `cmd.exe /s /c` takes one command string; paths with spaces must stay quoted
+ * after `/s` strips the outer quotes.
  * @param command Resolved executable path.
  * @param args Arguments for that executable.
  */
-export function spawnArgv(command: string, args: string[]): { command: string; args: string[] } {
+export function spawnArgv(command: string, args: string[]): SpawnArgv {
 	if (process.platform !== "win32" || !/\.(?:bat|cmd)$/i.test(command)) {
 		return { command, args };
 	}
 
 	const comSpec = process.env.ComSpec?.trim() || "cmd.exe";
-	return { command: comSpec, args: ["/d", "/s", "/c", command, ...args] };
+	const commandLine = [command, ...args].map(quoteCmdArgument).join(" ");
+	return {
+		command: comSpec,
+		args: ["/d", "/s", "/c", `"${commandLine}"`],
+		windowsVerbatimArguments: true,
+	};
+}
+
+function quoteCmdArgument(value: string): string {
+	return `"${value.replace(/"/g, '""')}"`;
 }
 
 function resolveRunnableFile(
@@ -162,6 +173,12 @@ function isRunnableFile(filePath: string, platform: NodeJS.Platform): boolean {
 	} catch {
 		return false;
 	}
+}
+
+interface SpawnArgv {
+	command: string;
+	args: string[];
+	windowsVerbatimArguments?: boolean;
 }
 
 /** One configured language server. */
