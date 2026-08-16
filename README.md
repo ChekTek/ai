@@ -22,6 +22,7 @@ skills/
 pi/
 ├── keybindings.json
 ├── extensions/
+│   ├── ask-user.ts
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
 │   ├── personas.ts
@@ -264,6 +265,18 @@ Code when using this setup:
 Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override Copilot's instruction folder.
 Set `CODEX_HOME` to override the Codex configuration folder.
 
+### Pi Ask User
+
+`pi/extensions/ask-user.ts` registers `ask_user`, a single-question picker the
+model can call instead of guessing. Each call shows 2–4 numbered options with a
+short trade-off description, plus an always-present **Type something.** row for
+custom feedback. Press 1–N to highlight an option, then Enter to confirm. After
+a custom answer, the model must restate it in chat and wait for confirmation
+before continuing.
+
+The tool is listed in Pi's available-tools prompt. Restart Pi after publishing
+so the extension loads.
+
 ### Pi Web Tools
 
 The `pi/extensions/web-tools.ts` entry point plus the `pi/extensions/web-tools/`
@@ -299,6 +312,47 @@ export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"  # optional override
 ```
 
 Extensions resolve once at startup, so restart Pi after publishing a new one.
+
+### Pi LSP
+
+The `pi/extensions/lsp.ts` entry point plus the `pi/extensions/lsp/` directory
+append language-server errors onto built-in `write` and `edit` results. There is
+no extra model tool. The project build remains the authoritative check; LSP is
+incremental feedback for the file that was just changed.
+
+Same entry-point layout as Pi Web Tools: the wrapper is the single
+registration so both Pi and `pi-acp` load the extension once.
+
+Servers start lazily when a matching file is written or edited, stay up for the
+session, and shut down when the session ends. Missing binaries are skipped
+quietly. `/lsp` prints PATH and process status; it is not sent to the model.
+
+Errors only, one line each, capped at 20. Clean edits add nothing.
+
+| Server | Command | Extensions |
+|---|---|---|
+| typescript | `typescript-language-server --stdio` | `.ts` `.tsx` `.js` `.jsx` `.mts` `.cts` `.mjs` `.cjs` |
+| mdx | `mdx-language-server --stdio` | `.mdx` |
+| astro | `astro-ls --stdio` | `.astro` |
+| biome | `biome lsp-proxy` | `.css` `.html` `.json` `.jsonc` |
+| dart | `dart language-server` | `.dart` |
+| rust-analyzer | `rust-analyzer` | `.rs` |
+| clangd | `clangd --background-index --clang-tidy` | `.c` `.cpp` `.cc` `.cxx` `.h` `.hpp` `.mm` |
+
+Biome is not run on JavaScript or TypeScript; type errors come from
+`typescript-language-server`. Commands must already be on `PATH`. This
+extension does not download language servers.
+
+```bash
+npm install -g typescript typescript-language-server
+npm install -g @mdx-js/language-server
+npm install -g @astrojs/language-server
+npm install -g @biomejs/biome
+rustup component add rust-analyzer rust-src
+```
+
+Dart needs the Dart SDK (`dart` on `PATH`). clangd needs a C/C++ toolchain;
+project `compile_commands.json` improves results. Restart Pi after publishing.
 
 ### Pi Flow
 
@@ -436,12 +490,18 @@ The script lists removals and asks for confirmation.
 Pass `--yes` (`-Yes` on Windows) to skip the prompt; this is required for a
 non-interactive clean.
 
-## Copilot Agent Orchestration
+## Agent Orchestration
 
-`orchestrate` delegates repository work to a Copilot CLI model in another
-family so the worker's blind spots differ from the reviewer's. Pass the family
-as the first argument: `gpt`, `claude`, or `grok`. Wrappers
-`orchestrate-gpt`, `orchestrate-claude`, and `orchestrate-grok` pin that family.
+These skills are user-only (`disable-model-invocation: true`). Workers are
+isolated `pi -p` children on the GitHub Copilot provider, not the Copilot CLI.
+Requires `pi` installed and GitHub Copilot login (`/login` in Pi).
 
-The calling agent must verify the resulting diff. Requires `copilot` installed
-and authenticated.
+`orchestrate` delegates repository work to one child in another model family
+so the worker's blind spots differ from the reviewer's. Pass the family as the
+first argument: `gpt`, `claude`, or `grok`. Wrappers `orchestrate-gpt`,
+`orchestrate-claude`, and `orchestrate-grok` pin that family.
+
+`orchestrate-fleet` requires splitting the work across at least two children
+(scout, worker, reviewer, oracle) instead of doing it in the parent session.
+
+The calling agent must verify the resulting diff.
