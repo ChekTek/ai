@@ -7,13 +7,11 @@ disable-model-invocation: true
 
 # Address All PR Feedback
 
-Collect every piece of unaddressed feedback on a pull request and resolve
-each item with the address-pr-feedback skill's workflow.
+Collect unaddressed PR feedback and run each item through the address-pr-feedback workflow.
 
 ## 1. Fetch the PR and its feedback
 
-Always fetch with the GitHub CLI — never a web fetch of the PR URL, which
-fails on private repos:
+Always `gh` — never a web fetch of the PR URL (fails on private repos):
 
 ```sh
 gh pr view <number-or-url> --comments  # description, discussion, review summaries
@@ -21,52 +19,24 @@ gh pr view <number-or-url> --comments  # description, discussion, review summari
 gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved isOutdated path line comments(first:50){nodes{author{login} body}}}}}}}' -f owner=<owner> -f repo=<repo> -F pr=<number> --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)'
 ```
 
-Check out the PR branch with `gh pr checkout <number-or-url>`. If the working
-tree has unrelated local changes, stop and ask before proceeding.
+`gh pr checkout <number-or-url>`. If the working tree has unrelated local changes, stop and ask.
 
 ## 2. Build the feedback list
 
-One review thread = one feedback item; replies within a thread are context
-for that item, not separate items. Add actionable requests from review
-summaries and discussion comments. Skip resolved threads, plain approvals and
-acknowledgements, and bot noise (CI status, coverage) unless it requests a
-concrete change. Outdated (`isOutdated`) threads may still be valid — judge
-them like any other item.
+One review thread = one item; replies are context. Add actionable requests from review summaries and discussion. Skip resolved threads, plain approvals, and bot noise unless it asks for a concrete change. Outdated threads may still be valid.
 
 ## 3. Address each item
 
-Invoke the address-pr-feedback skill once and apply its workflow to each item
-in turn, treating the item's comments — with their file/line context — as the
-feedback message. Skip that skill's GitHub resolve prompt; ask once in step 5
-instead. If skill invocation is unavailable, read
-`../address-pr-feedback/SKILL.md` and follow it.
+Apply address-pr-feedback to each item (file/line + comments as the feedback). Skip that skill's GitHub resolve prompt; ask once in step 5. If the skill is not loaded, read `../address-pr-feedback/SKILL.md`.
 
-Per that workflow, don't narrate progress between items, and keep every fix
-local — nothing is pushed while working.
+Don't narrate between items. Keep every fix local.
 
 ## 4. Report back
 
-One line per item — `path:line — valid / partially valid / invalid — fix made
-or reason rejected` — followed by anything cross-cutting: shared root causes,
-verification run, residual risks.
+One line per item — `path:line — valid / partially valid / invalid — fix made or reason rejected` — then cross-cutting notes (shared causes, verification, residual risks).
 
-Do not push until the user has reviewed the changes; push to the PR branch
-only after they approve.
+Do not push until the user has reviewed; push only after they approve.
 
 ## 5. Resolve on GitHub (ask first)
 
-Skip the per-item GitHub resolve prompt from address-pr-feedback. After the
-report, ask once whether to resolve the PR comments. Use a question tool with
-**Yes** / **No** when available; otherwise ask yes or no in the report. Only
-proceed on an explicit yes.
-
-`gh` has no first-class resolve command. Resolve each handled review thread
-(valid, partially valid, or invalid — the conversation is done) with its
-GraphQL `id` (`PRRT_...`) from step 1:
-
-```sh
-gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id=<thread-id>
-```
-
-Do not resolve threads that were skipped. Plain discussion comments
-(`gh pr comment`) cannot be marked resolved. Do not push.
+After the report, ask once whether to resolve the PR comments (Yes/No). On yes, resolve each handled thread from step 1 with the GraphQL mutation in address-pr-feedback. Do not resolve skipped threads. Discussion comments cannot be marked resolved. Do not push.

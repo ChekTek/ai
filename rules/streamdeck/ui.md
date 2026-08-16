@@ -6,8 +6,8 @@ paths:
 
 # Stream Deck UI Instructions
 
-- Favor using elements from [SDPI Components](https://sdpi-components.dev/docs/components)
-- Settings that depend on other settings should be hidden until the parent setting is selected
-- When communicating with the plugin use `const { streamDeckClient } = SDPIComponents;` rather than creating websocket connections directly
-- Event listeners attached to SDPI Components need to be created through the `focusElement` (i.e. `const displayElement = document.getElementById('display-select').focusElement.value;`)
-- `sdpi-item` elements should have a title property that describes the setting i.e. `<sdpi-item title="This setting does something important">`
+- Use [SDPI Components](https://sdpi-components.dev/docs/components).
+- Hide settings that depend on a parent until that parent is selected.
+- Talk to the plugin with `const { streamDeckClient } = SDPIComponents;` — do not open a WebSocket.
+- Attach listeners through each component's `focusElement`.
+- `sdpi-item` elements need a `title` that describes the setting.
