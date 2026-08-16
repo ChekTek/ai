@@ -1,13 +1,13 @@
 import {
-	DEFAULT_MAX_BYTES,
-	DEFAULT_MAX_LINES,
 	formatSize,
+	resizeImage,
 	truncateHead,
 	type TruncationResult,
 } from "@earendil-works/pi-coding-agent";
 import type { FetchPageResult } from "./fetch-page.ts";
 import { err, ok, type Result } from "./result.ts";
 import type { SearchWebResult } from "./search-web.ts";
+import { TOOL_OUTPUT_MAX_BYTES, TOOL_OUTPUT_MAX_LINES } from "./settings.ts";
 import { writeTempTextFile } from "./temp.ts";
 import type { SearchDepth, SearchProviderName, WebFetchFormat } from "./types.ts";
 import type { NormalizedSearchResult } from "./providers/types.ts";
@@ -76,10 +76,33 @@ export async function projectFetchPageResultToPiToolResult(
 	store: ToolOutputStore,
 ): Promise<Result<PiToolResult<WebFetchDetails>, ToolOutputStoreError>> {
 	if (result._tag === "Image") {
+		const resized = await resizeImage(result.data, result.mime);
+		if (resized) {
+			return ok({
+				content: [
+					textContent(
+						`Fetched image from ${result.finalUrl} (${resized.mimeType}, ${resized.width}x${resized.height})`,
+					),
+					imageContent(resized.data, resized.mimeType),
+				],
+				details: {
+					requestedUrl: result.requestedUrl,
+					finalUrl: result.finalUrl,
+					format: result.format,
+					status: result.status,
+					mime: resized.mimeType,
+					contentType: result.contentType,
+					bytes: result.bytes,
+					image: true,
+				},
+			});
+		}
+
 		return ok({
 			content: [
-				textContent(`Fetched image from ${result.finalUrl} (${result.mime || "image"}, ${formatSize(result.bytes)})`),
-				imageContent(result.data.toString("base64"), result.mime),
+				textContent(
+					`Fetched image from ${result.finalUrl} (${result.mime || "image"}, ${formatSize(result.bytes)}). Image was too large to inline; open the URL.`,
+				),
 			],
 			details: {
 				requestedUrl: result.requestedUrl,
@@ -161,21 +184,29 @@ export function formatSearchResults(query: string, results: readonly NormalizedS
 	for (const [index, result] of results.entries()) {
 		lines.push(`${index + 1}. ${result.title}`);
 		lines.push(`   URL: ${result.url}`);
-		if (result.publishedAt) {
-			lines.push(`   Published: ${result.publishedAt}`);
-		}
-		if (result.source) {
-			lines.push(`   Source: ${result.source}`);
-		}
-		if (typeof result.score === "number") {
-			lines.push(`   Score: ${result.score}`);
-		}
-		if (result.snippet) {
-			lines.push(`   Snippet: ${result.snippet}`);
+		const snippet = snippetForModel(result.snippet);
+		if (snippet) {
+			lines.push(`   ${snippet}`);
 		}
 		lines.push("");
 	}
 	return lines.join("\n").trimEnd();
+}
+
+const SEARCH_SNIPPET_MAX_CHARS = 200;
+
+function snippetForModel(snippet: string | undefined): string | undefined {
+	if (!snippet) {
+		return undefined;
+	}
+	const collapsed = snippet.replace(/\s+/g, " ").trim();
+	if (!collapsed) {
+		return undefined;
+	}
+	if (collapsed.length <= SEARCH_SNIPPET_MAX_CHARS) {
+		return collapsed;
+	}
+	return `${collapsed.slice(0, SEARCH_SNIPPET_MAX_CHARS - 3).trimEnd()}...`;
 }
 
 async function projectTextOutput(
@@ -183,8 +214,8 @@ async function projectTextOutput(
 	options: { readonly store: ToolOutputStore; readonly tempPrefix: string; readonly fileName: string },
 ): Promise<Result<ProjectedTextOutput, ToolOutputStoreError>> {
 	const truncation = truncateHead(output, {
-		maxBytes: DEFAULT_MAX_BYTES,
-		maxLines: DEFAULT_MAX_LINES,
+		maxBytes: TOOL_OUTPUT_MAX_BYTES,
+		maxLines: TOOL_OUTPUT_MAX_LINES,
 	});
 
 	if (!truncation.truncated) {
@@ -202,7 +233,7 @@ async function projectTextOutput(
 	text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines`;
 	text += ` (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`;
 	text += ` ${omittedLines} lines (${formatSize(omittedBytes)}) omitted.`;
-	text += ` Full output saved to: ${fullOutputPath.value}]`;
+	text += ` Full output saved to: ${fullOutputPath.value}. Use read on that path for the rest.]`;
 
 	return ok({ text, truncated: true, fullOutputPath: fullOutputPath.value, truncation });
 }
