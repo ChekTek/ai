@@ -33,6 +33,8 @@ export interface FlowServerOptions {
 	onConnection: (socket: WebSocket) => void;
 	/** Called when a browser asks for a fresh snapshot. */
 	onResync: (socket: WebSocket) => void;
+	/** Called for every other understood client message. */
+	onClientMessage: (message: FlowClientMessage) => void;
 }
 
 /**
@@ -194,6 +196,8 @@ export class FlowServer {
 		const headers: Record<string, string> = {
 			"content-type": CONTENT_TYPES[extname(filePath)] ?? "application/octet-stream",
 			"cache-control": "no-store",
+			"referrer-policy": "no-referrer",
+			"x-content-type-options": "nosniff",
 		};
 
 		if (extname(filePath) === ".html") {
@@ -221,9 +225,16 @@ export class FlowServer {
 		socket.on("error", () => this.#sockets.delete(socket));
 		socket.on("message", (raw) => {
 			const message = parseClientMessage(raw.toString());
-			if (message?.type === "resync") {
-				this.#options.onResync(socket);
+			if (!message) {
+				return;
 			}
+
+			if (message.type === "resync") {
+				this.#options.onResync(socket);
+				return;
+			}
+
+			this.#options.onClientMessage(message);
 		});
 
 		this.#options.onConnection(socket);
@@ -334,12 +345,58 @@ function readCookie(header: string | undefined, name: string): string | undefine
 function parseClientMessage(raw: string): FlowClientMessage | undefined {
 	try {
 		const parsed: unknown = JSON.parse(raw);
-		if (typeof parsed === "object" && parsed !== null && (parsed as { type?: unknown }).type === "resync") {
-			return { type: "resync" };
+		if (typeof parsed !== "object" || parsed === null) {
+			return undefined;
+		}
+
+		const type = (parsed as { type?: unknown }).type;
+		switch (type) {
+			case "resync":
+				return { type: "resync" };
+			case "draft": {
+				const text = (parsed as { text?: unknown }).text;
+				return typeof text === "string" ? { type: "draft", text } : undefined;
+			}
+			case "prompt": {
+				const text = (parsed as { text?: unknown }).text;
+				const deliverAs = (parsed as { deliverAs?: unknown }).deliverAs;
+				if (typeof text !== "string") {
+					return undefined;
+				}
+
+				if (deliverAs === "steer" || deliverAs === "followUp") {
+					return { type: "prompt", text, deliverAs };
+				}
+
+				return { type: "prompt", text };
+			}
+			case "collapse": {
+				const id = (parsed as { id?: unknown }).id;
+				const expanded = (parsed as { expanded?: unknown }).expanded;
+				return typeof id === "string" && typeof expanded === "boolean" ? { type: "collapse", id, expanded } : undefined;
+			}
+			case "navigate": {
+				const entryId = (parsed as { entryId?: unknown }).entryId;
+				const mode = (parsed as { mode?: unknown }).mode;
+				if (typeof entryId !== "string" || (mode !== "continue" && mode !== "edit")) {
+					return undefined;
+				}
+
+				return { type: "navigate", entryId, mode };
+			}
+			case "label": {
+				const entryId = (parsed as { entryId?: unknown }).entryId;
+				const label = (parsed as { label?: unknown }).label;
+				if (typeof entryId !== "string") {
+					return undefined;
+				}
+
+				return { type: "label", entryId, label: typeof label === "string" ? label : undefined };
+			}
+			default:
+				return undefined;
 		}
 	} catch {
 		return undefined;
 	}
-
-	return undefined;
 }

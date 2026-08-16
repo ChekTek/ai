@@ -1,5 +1,6 @@
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 
+import type { ContextSnapshot } from "./context-tracker.ts";
 import { type LiveState, messageKey } from "./live-state.ts";
 import type { FlowAgentMessage, FlowAssistantMessage, FlowToolResultMessage } from "./messages.ts";
 import {
@@ -12,7 +13,9 @@ import {
 	toolCallsOf,
 	truncate,
 } from "./messages.ts";
-import type { FlowEdge, FlowGraph, FlowNode, FlowNodeStatus, FlowSessionInfo } from "./protocol.ts";
+import type { FlowEdge, FlowGraph, FlowNode, FlowNodeStatus, FlowQueuedPrompt, FlowSessionInfo } from "./protocol.ts";
+import type { FlowSpawnEvent } from "./spawn-protocol.ts";
+import { asSubagentDetails, spawnDetail, spawnPreview, spawnStatus, type SubagentDetails } from "./subagent.ts";
 
 /** Maximum characters kept for the inspector panel body of a node. */
 const DETAIL_LIMIT = 1200;
@@ -37,6 +40,8 @@ interface NodeBase {
 	layoutParentId: string | null;
 	/** Session entry id, when the node is persisted. */
 	entryId?: string;
+	/** Parent session entry id, when persisted. */
+	parentEntryId?: string;
 	/** Whether the node sits on the active branch. */
 	onActiveBranch: boolean;
 	/** Unix milliseconds for the underlying message or entry. */
@@ -69,6 +74,7 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 	const toolNodes = new Map<string, FlowNode>();
 	const committedMessageKeys = new Set<string>();
 	const committedToolCallIds = new Set<string>();
+	const userTexts = new Set<string>();
 	const activeIds = collectActiveBranchIds(session);
 	const leafId = session.getLeafId();
 	const childrenByParent = groupByParent(entries);
@@ -90,6 +96,9 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 
 		if (entry.type === "message") {
 			committedMessageKeys.add(messageKey(entry.message));
+			if (entry.message.role === "user") {
+				userTexts.add(textOf(entry.message.content).trim());
+			}
 		}
 
 		if (entry.type === "message" && entry.message.role === "toolResult") {
@@ -132,7 +141,18 @@ export function buildSnapshot(ctx: ExtensionContext, live: LiveState): FlowSnaps
 		nodes.push(node);
 		edges.push(...connectToAnchor(node, tipAnchor));
 		tipAnchor = attachToolBranches(node, liveMessage.message, nodes, edges, toolNodes, live);
+		if (liveMessage.message.role === "user") {
+			userTexts.add(textOf(liveMessage.message.content).trim());
+		}
 	}
+
+	live.settleQueued(userTexts);
+	appendQueuedNodes(nodes, edges, live.queued, tipAnchor);
+	appendContextNodes(nodes, edges, live, tipAnchor);
+	markSummarized(nodes, session);
+	labelCompactions(nodes, live);
+	annotateEntries(nodes, session, leafId);
+	markPromptHost(nodes);
 
 	return {
 		session: describeSession(ctx, live),
@@ -207,6 +227,9 @@ function describeSession(ctx: ExtensionContext, live: LiveState): FlowSessionInf
 		model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 		leafId: session.getLeafId(),
 		busy: live.busy,
+		draft: live.draft,
+		queued: [...live.queued],
+		contextUsage: ctx.getContextUsage(),
 	};
 }
 
@@ -299,9 +322,429 @@ function attachToolBranches(
 			kind: "branch",
 			onActiveBranch: node.onActiveBranch,
 		});
+		attachNestedWork(toolNode, call.id, call.name, liveTool?.result, nodes, edges, live);
 	});
 
 	return { nodeId: node.id, depth: node.depth + 2, rejoinFrom };
+}
+
+/**
+ * Expand supported subagent details and cooperative spawn events under a tool node.
+ * @param toolNode Parent tool card.
+ * @param toolCallId Provider tool call id.
+ * @param toolName Tool name.
+ * @param result Latest tool result payload.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ * @param live Live agent state.
+ */
+function attachNestedWork(
+	toolNode: FlowNode,
+	toolCallId: string,
+	toolName: string,
+	result: unknown,
+	nodes: FlowNode[],
+	edges: FlowEdge[],
+	live: LiveState,
+): void {
+	const collapsed = live.isCollapsed(toolNode.id);
+	const details = toolName === "subagent" ? asSubagentDetails(result) : undefined;
+	const spawns = live.spawnsFor(toolCallId);
+	if (!details && spawns.length === 0) {
+		return;
+	}
+
+	toolNode.badges = [...(toolNode.badges ?? []), collapsed ? "collapsed" : "expanded"];
+	if (collapsed) {
+		return;
+	}
+
+	if (details) {
+		attachSubagentResults(toolNode, details, nodes, edges);
+		return;
+	}
+
+	spawns.forEach((spawn, index) => {
+		const child: FlowNode = {
+			id: `spawn:${spawn.taskId}`,
+			kind: spawn.type === "process" ? "bash" : "custom",
+			depth: toolNode.depth + 1,
+			layoutParentId: toolNode.id,
+			lane: index,
+			laneCount: spawns.length,
+			title: spawn.label ?? spawn.taskId,
+			subtitle: spawn.type ?? "task",
+			preview: spawnPreview(spawn),
+			detail: spawnDetail(spawn),
+			status: spawnStatus(spawn.state),
+			onActiveBranch: toolNode.onActiveBranch,
+			badges: [spawn.state],
+		};
+		nodes.push(child);
+		edges.push({
+			id: `${toolNode.id}->${child.id}`,
+			source: toolNode.id,
+			target: child.id,
+			kind: "branch",
+			onActiveBranch: toolNode.onActiveBranch,
+		});
+		attachSpawnMessages(child, spawn, nodes, edges);
+	});
+}
+
+/**
+ * Render each subagent task as a child branch, including nested messages when present.
+ * @param toolNode Parent subagent tool card.
+ * @param details Parsed subagent details.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ */
+function attachSubagentResults(toolNode: FlowNode, details: SubagentDetails, nodes: FlowNode[], edges: FlowEdge[]): void {
+	details.results.forEach((result, index) => {
+		const failed = (result.exitCode ?? 0) !== 0 || result.stopReason === "error";
+		const aborted = result.stopReason === "aborted";
+		const child: FlowNode = {
+			id: `${toolNode.id}:task:${result.step ?? index}`,
+			kind: "custom",
+			depth: toolNode.depth + 1,
+			layoutParentId: toolNode.id,
+			lane: details.mode === "chain" ? null : index,
+			laneCount: details.mode === "chain" ? null : details.results.length,
+			title: result.agent,
+			subtitle: details.mode === "chain" ? `step ${result.step ?? index + 1}` : details.mode,
+			preview: preview(result.task),
+			detail: truncate(result.errorMessage ?? result.task, DETAIL_LIMIT),
+			status: aborted ? "aborted" : failed ? "error" : result.exitCode === undefined ? "running" : "success",
+			onActiveBranch: toolNode.onActiveBranch,
+			badges: [details.mode],
+		};
+		nodes.push(child);
+		edges.push({
+			id: `${toolNode.id}->${child.id}`,
+			source: toolNode.id,
+			target: child.id,
+			kind: "branch",
+			onActiveBranch: toolNode.onActiveBranch,
+		});
+
+		const nestedParent = details.mode === "chain" && index > 0 ? `${toolNode.id}:task:${details.results[index - 1]?.step ?? index - 1}` : child.id;
+		if (details.mode === "chain" && index > 0) {
+			child.layoutParentId = nestedParent;
+			child.depth = toolNode.depth + 1 + index;
+		}
+
+		(result.messages ?? []).forEach((message, messageIndex) => {
+			const role = typeof message.role === "string" ? message.role : "assistant";
+			const text = textOf(message.content);
+			if (text.length === 0 && role !== "tool") {
+				return;
+			}
+
+			const nested: FlowNode = {
+				id: `${child.id}:msg:${messageIndex}`,
+				kind: role === "user" ? "user" : role === "tool" ? "tool" : "assistant",
+				depth: child.depth + 1 + messageIndex,
+				layoutParentId: messageIndex === 0 ? child.id : `${child.id}:msg:${messageIndex - 1}`,
+				lane: null,
+				laneCount: null,
+				title: role,
+				preview: preview(text),
+				detail: truncate(text, DETAIL_LIMIT),
+				status: "success",
+				onActiveBranch: child.onActiveBranch,
+			};
+			nodes.push(nested);
+			edges.push({
+				id: `${nested.layoutParentId}->${nested.id}`,
+				source: nested.layoutParentId ?? child.id,
+				target: nested.id,
+				kind: "flow",
+				onActiveBranch: child.onActiveBranch,
+			});
+		});
+	});
+}
+
+/**
+ * Attach nested messages from a cooperative spawn event.
+ * @param parent Spawn card.
+ * @param spawn Spawn event.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ */
+function attachSpawnMessages(parent: FlowNode, spawn: FlowSpawnEvent, nodes: FlowNode[], edges: FlowEdge[]): void {
+	(spawn.messages ?? []).forEach((message, index) => {
+		const nested: FlowNode = {
+			id: `${parent.id}:${message.id}`,
+			kind: message.role === "user" ? "user" : message.role === "tool" ? "tool" : "assistant",
+			depth: parent.depth + 1 + index,
+			layoutParentId: index === 0 ? parent.id : `${parent.id}:${spawn.messages?.[index - 1]?.id ?? ""}`,
+			lane: null,
+			laneCount: null,
+			title: message.toolName ?? message.role,
+			preview: message.text ? preview(message.text) : undefined,
+			status: spawnStatus(spawn.state),
+			onActiveBranch: parent.onActiveBranch,
+		};
+		nodes.push(nested);
+		edges.push({
+			id: `${nested.layoutParentId}->${nested.id}`,
+			source: nested.layoutParentId ?? parent.id,
+			target: nested.id,
+			kind: "flow",
+			onActiveBranch: parent.onActiveBranch,
+		});
+	});
+}
+
+/**
+ * Attach queued graph submissions as distinct cards on the live tip.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ * @param queued Prompts waiting for Pi to accept them.
+ * @param anchor Live tip of the active branch.
+ */
+function appendQueuedNodes(
+	nodes: FlowNode[],
+	edges: FlowEdge[],
+	queued: readonly FlowQueuedPrompt[],
+	anchor: Anchor,
+): void {
+	let parentId = anchor.nodeId;
+	let depth = anchor.depth;
+	for (const item of queued) {
+		const node: FlowNode = {
+			id: item.id,
+			kind: "queued",
+			depth,
+			layoutParentId: parentId,
+			lane: null,
+			laneCount: null,
+			title: item.deliverAs === "steer" ? "Queued steering" : "Queued follow-up",
+			preview: preview(item.text),
+			detail: truncate(item.text, DETAIL_LIMIT),
+			status: "running",
+			onActiveBranch: true,
+			badges: [item.deliverAs],
+		};
+		nodes.push(node);
+		if (parentId) {
+			edges.push({
+				id: `${parentId}->${node.id}`,
+				source: parentId,
+				target: node.id,
+				kind: "flow",
+				onActiveBranch: true,
+			});
+		}
+
+		parentId = node.id;
+		depth += 1;
+	}
+}
+
+/**
+ * Attach inspectable context snapshots and explicit skill nodes as side branches.
+ * @param nodes Accumulated node list.
+ * @param edges Accumulated edge list.
+ * @param live Live agent and context state.
+ * @param anchor Live tip used when no user node is available.
+ */
+function appendContextNodes(
+	nodes: FlowNode[],
+	edges: FlowEdge[],
+	live: LiveState,
+	anchor: Anchor,
+): void {
+	const host =
+		[...nodes].reverse().find((node) => node.onActiveBranch && node.kind === "user") ??
+		nodes.find((node) => node.id === anchor.nodeId);
+	const parentId = host?.id ?? anchor.nodeId;
+	if (!parentId) {
+		return;
+	}
+
+	const snapshots = live.context.snapshots;
+	snapshots.forEach((snapshot, index) => {
+		const expanded = live.context.expanded.has(snapshot.id);
+		const diff = snapshot.diff;
+		const added = diff?.added.length ?? 0;
+		const removed = diff?.removed.length ?? 0;
+		const retained = diff?.retained.length ?? snapshot.items.length;
+		const usage =
+			snapshot.usage?.percent !== null && snapshot.usage?.percent !== undefined
+				? `${Math.round(snapshot.usage.percent)}%`
+				: snapshot.usage?.tokens !== null && snapshot.usage?.tokens !== undefined
+					? `${snapshot.usage.tokens.toLocaleString()} tok`
+					: undefined;
+		const previewText = expanded
+			? snapshot.items.map((item) => `${item.label} (${item.provenance})`).join("\n")
+			: `${added} added · ${removed} removed · ${retained} retained`;
+		const node: FlowNode = {
+			id: snapshot.id,
+			kind: "context",
+			depth: (host?.depth ?? anchor.depth) + 1,
+			layoutParentId: parentId,
+			lane: index,
+			laneCount: snapshots.length + snapshot.explicitSkills.length,
+			title: `Context ${snapshot.index}`,
+			subtitle: [snapshot.model, usage].filter(Boolean).join(" · ") || undefined,
+			preview: preview(previewText, expanded ? 400 : 220),
+			detail: truncate(formatSnapshotDetail(snapshot), DETAIL_LIMIT),
+			status: "success",
+			onActiveBranch: true,
+			badges: usage ? [usage, "collapsed"] : ["collapsed"],
+			expanded,
+		};
+		if (expanded) {
+			node.badges = (node.badges ?? []).map((badge) => (badge === "collapsed" ? "expanded" : badge));
+		}
+
+		nodes.push(node);
+		edges.push({
+			id: `${parentId}->${node.id}`,
+			source: parentId,
+			target: node.id,
+			kind: "branch",
+			onActiveBranch: true,
+		});
+
+		snapshot.explicitSkills.forEach((name, skillIndex) => {
+			const skillId = `${snapshot.id}:skill:${name}`;
+			const skill: FlowNode = {
+				id: skillId,
+				kind: "skill",
+				depth: node.depth + 1,
+				layoutParentId: node.id,
+				lane: skillIndex,
+				laneCount: snapshot.explicitSkills.length,
+				title: `/skill:${name}`,
+				subtitle: "explicit invocation",
+				preview: `Attributed to /skill:${name}`,
+				status: "success",
+				onActiveBranch: true,
+				badges: ["explicit"],
+			};
+			nodes.push(skill);
+			edges.push({
+				id: `${node.id}->${skill.id}`,
+				source: node.id,
+				target: skill.id,
+				kind: "branch",
+				onActiveBranch: true,
+			});
+		});
+	});
+}
+
+/**
+ * Render a snapshot for the inspector without dumping full message bodies.
+ * @param snapshot Context snapshot.
+ * @returns Inspector text.
+ */
+function formatSnapshotDetail(snapshot: ContextSnapshot): string {
+	const lines = [`Model call ${snapshot.index}`, snapshot.model ? `Model: ${snapshot.model}` : undefined];
+	if (snapshot.usage) {
+		lines.push(
+			`Usage: ${snapshot.usage.tokens ?? "unknown"} / ${snapshot.usage.contextWindow} (${snapshot.usage.percent ?? "?"}%)`,
+		);
+	}
+
+	if (snapshot.diff) {
+		lines.push(`Added: ${snapshot.diff.added.join(", ") || "none"}`);
+		lines.push(`Removed: ${snapshot.diff.removed.join(", ") || "none"}`);
+		lines.push(`Retained: ${snapshot.diff.retained.length} items`);
+	}
+
+	lines.push("Items:");
+	for (const item of snapshot.items) {
+		lines.push(`- ${item.kind} ${item.label} [${item.provenance}]`);
+	}
+
+	return lines.filter(Boolean).join("\n");
+}
+
+/**
+ * Mark nodes that compaction replaced with a summary.
+ * @param nodes Current nodes.
+ * @param session Active session manager.
+ */
+function markSummarized(nodes: FlowNode[], session: ExtensionContext["sessionManager"]): void {
+	let kept: Set<string>;
+	try {
+		kept = new Set(session.buildContextEntries().map((entry) => entry.id));
+	} catch {
+		return;
+	}
+
+	for (const node of nodes) {
+		if (node.entryId && !kept.has(node.entryId) && node.kind !== "compaction" && node.kind !== "branchSummary") {
+			node.summarized = true;
+			node.badges = [...(node.badges ?? []), "summarized"];
+		}
+	}
+}
+
+/**
+ * Apply recorded compaction reasons to funnel nodes.
+ * @param nodes Current nodes.
+ * @param live Live context tracker.
+ */
+function labelCompactions(nodes: FlowNode[], live: LiveState): void {
+	for (const node of nodes) {
+		if (node.kind !== "compaction" || !node.entryId) {
+			continue;
+		}
+
+		const reason = live.context.compactionReason(node.entryId);
+		if (!reason) {
+			continue;
+		}
+
+		node.title = reason === "manual" ? "Manual compaction" : reason === "overflow" ? "Overflow compaction" : "Auto compaction";
+		node.badges = [reason, "funnel"];
+	}
+}
+
+/**
+ * Attach session labels, leaf highlighting, and parent ids to persisted nodes.
+ * @param nodes Current nodes.
+ * @param session Active session manager.
+ * @param leafId Current leaf entry id.
+ */
+function annotateEntries(nodes: FlowNode[], session: ExtensionContext["sessionManager"], leafId: string | null): void {
+	for (const node of nodes) {
+		if (!node.entryId) {
+			continue;
+		}
+
+		node.isLeaf = node.entryId === leafId;
+		const label = session.getLabel(node.entryId);
+		if (label) {
+			node.label = label;
+			node.badges = [...(node.badges ?? []), label];
+		}
+	}
+}
+
+/**
+ * Put the prompt editor on the latest active main-flow node.
+ * @param nodes Current nodes.
+ */
+function markPromptHost(nodes: FlowNode[]): void {
+	for (let index = nodes.length - 1; index >= 0; index -= 1) {
+		const node = nodes[index];
+		if (!node?.onActiveBranch || node.lane !== null) {
+			continue;
+		}
+
+		if (node.kind === "tool" || node.kind === "queued" || node.kind === "context" || node.kind === "skill") {
+			continue;
+		}
+
+		node.promptHost = true;
+		return;
+	}
 }
 
 /**
@@ -387,6 +830,7 @@ function createEntryNode(entry: SessionEntry, anchor: Anchor, onActiveBranch: bo
 		depth: anchor.depth,
 		layoutParentId: anchor.nodeId,
 		entryId: entry.id,
+		parentEntryId: entry.parentId ?? undefined,
 		onActiveBranch,
 		timestamp: Date.parse(entry.timestamp) || undefined,
 	};
@@ -405,10 +849,14 @@ function createEntryNode(entry: SessionEntry, anchor: Anchor, onActiveBranch: bo
 				lane: null,
 				laneCount: null,
 				title: "Compaction",
-				subtitle: `${entry.tokensBefore.toLocaleString()} tokens before`,
+				subtitle: `${entry.tokensBefore.toLocaleString()} tokens before · kept ${entry.firstKeptEntryId.slice(0, 8)}`,
 				preview: preview(entry.summary),
-				detail: truncate(entry.summary, DETAIL_LIMIT),
+				detail: truncate(
+					`Summarized history:\n${entry.summary}\n\nRecent context retained from entry ${entry.firstKeptEntryId}.`,
+					DETAIL_LIMIT,
+				),
 				status: "success",
+				badges: ["funnel"],
 			};
 		case "branch_summary":
 			return {
@@ -461,6 +909,7 @@ function createMessageNode(base: NodeBase, message: FlowAgentMessage, streaming:
 				preview: preview(text),
 				detail: truncate(text, DETAIL_LIMIT),
 				status: "success",
+				promptText: text,
 				badges: images > 0 ? [`${images} image${images === 1 ? "" : "s"}`] : undefined,
 			};
 		}

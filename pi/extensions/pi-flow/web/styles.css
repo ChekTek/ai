@@ -244,8 +244,30 @@ button.toggle.on {
 .flow-node.kind-compaction,
 .flow-node.kind-branchSummary,
 .flow-node.kind-custom,
-.flow-node.kind-bash {
+.flow-node.kind-bash,
+.flow-node.kind-queued {
 	--accent: var(--context);
+}
+
+.flow-node.kind-context,
+.flow-node.kind-skill {
+	--accent: var(--context);
+}
+
+.flow-node.summarized {
+	opacity: 0.38;
+}
+
+.flow-node.leaf {
+	box-shadow:
+		0 0 0 1px var(--assistant),
+		0 10px 28px rgb(0 0 0 / 45%);
+}
+
+.node-expand {
+	margin-top: 8px;
+	padding: 3px 8px;
+	font-size: 11px;
 }
 
 .flow-node.status-error {
@@ -347,8 +369,44 @@ button.toggle.on {
 	bottom: -4px;
 }
 
-[hidden] {
-	display: none !important;
+.node-prompt {
+	margin-top: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.node-prompt-input {
+	width: 100%;
+	resize: none;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--bg);
+	color: var(--text);
+	padding: 8px;
+	font: inherit;
+	line-height: 1.4;
+}
+
+.node-prompt-input:focus {
+	outline: none;
+	border-color: var(--user);
+}
+
+.node-prompt-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.node-prompt-send {
+	padding: 4px 10px;
+	font-size: 12px;
+}
+
+.node-prompt-hint {
+	color: var(--text-dim);
+	font-size: 10px;
 }
 
 .empty {
@@ -356,9 +414,24 @@ button.toggle.on {
 	inset: 0;
 	display: grid;
 	place-content: center;
+	justify-items: center;
+	gap: 16px;
 	margin: 0;
 	color: var(--text-dim);
 	pointer-events: none;
+}
+
+.empty p {
+	margin: 0;
+}
+
+.empty-prompt {
+	width: min(420px, calc(100vw - 48px));
+	pointer-events: auto;
+}
+
+[hidden] {
+	display: none !important;
 }
 
 .inspector {
@@ -395,6 +468,30 @@ button.toggle.on {
 	gap: 4px;
 	flex-wrap: wrap;
 	margin: 10px 0;
+}
+
+.inspector-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 10px 0;
+}
+
+.inspector-label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	color: var(--text-dim);
+	font-size: 11px;
+}
+
+.inspector-label input {
+	background: var(--bg);
+	color: var(--text);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 6px 8px;
+	font: inherit;
 }
 
 .inspector-body {

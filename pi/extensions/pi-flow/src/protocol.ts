@@ -6,7 +6,20 @@
  */
 
 /** Category of a node on the conversation canvas. */
-export type FlowNodeKind = "assistant" | "bash" | "branchSummary" | "compaction" | "custom" | "tool" | "user";
+export type FlowNodeKind =
+	| "assistant"
+	| "bash"
+	| "branchSummary"
+	| "compaction"
+	| "context"
+	| "custom"
+	| "queued"
+	| "skill"
+	| "tool"
+	| "user";
+
+/** How a graph-submitted prompt is delivered while the agent is already running. */
+export type FlowDeliverAs = "followUp" | "steer";
 
 /** Lifecycle state rendered on a node card. */
 export type FlowNodeStatus = "aborted" | "error" | "running" | "streaming" | "success";
@@ -43,6 +56,20 @@ export interface FlowNode {
 	onActiveBranch: boolean;
 	/** Small key/value badges rendered on the card. */
 	badges?: string[];
+	/** Whether this card hosts the active prompt editor. */
+	promptHost?: boolean;
+	/** Whether an expandable context card is showing its detail. */
+	expanded?: boolean;
+	/** Session entries this compaction summarised, when known. */
+	summarized?: boolean;
+	/** Whether this node is the current session leaf. */
+	isLeaf?: boolean;
+	/** Persistent bookmark label. */
+	label?: string;
+	/** Parent session entry id, when this node is persisted. */
+	parentEntryId?: string;
+	/** Original user prompt text, when this node is a user message. */
+	promptText?: string;
 }
 
 /** A connection between two cards. */
@@ -83,6 +110,22 @@ export interface FlowSessionInfo {
 	leafId: string | null;
 	/** Whether the agent is currently working. */
 	busy: boolean;
+	/** Draft prompt text preserved across graph updates and reconnects. */
+	draft: string;
+	/** Prompts submitted from the graph that have not yet appeared as session entries. */
+	queued: FlowQueuedPrompt[];
+	/** Current context window usage, when Pi reports it. */
+	contextUsage?: { tokens: number | null; percent: number | null; contextWindow: number };
+}
+
+/** A graph-submitted prompt waiting for Pi to accept it. */
+export interface FlowQueuedPrompt {
+	/** Stable id for the queued card. */
+	id: string;
+	/** Prompt text. */
+	text: string;
+	/** Delivery mode used while the agent was busy. */
+	deliverAs: FlowDeliverAs;
 }
 
 /** Difference between two graph revisions. */
@@ -123,8 +166,50 @@ export type FlowServerMessage =
 			reason: string;
 	  };
 
-/** Messages sent from the browser to the extension. */
-export type FlowClientMessage = {
-	/** Ask for a fresh snapshot, for example after a dropped connection. */
+/** Expand or collapse a context card. */
+export interface FlowCollapseMessage {
+	type: "collapse";
+	id: string;
+	expanded: boolean;
+}
+
+/** Persist draft prompt text so reconnects can restore it. */
+export interface FlowDraftMessage {
+	type: "draft";
+	text: string;
+}
+
+/** Set or clear a persistent label on a session entry. */
+export interface FlowLabelMessage {
+	type: "label";
+	entryId: string;
+	label?: string;
+}
+
+/** Navigate Pi's session tree from a graph node. */
+export interface FlowNavigateMessage {
+	type: "navigate";
+	entryId: string;
+	mode: "continue" | "edit";
+}
+
+/** Submit a prompt from the graph editor. */
+export interface FlowPromptMessage {
+	type: "prompt";
+	text: string;
+	deliverAs?: FlowDeliverAs;
+}
+
+/** Ask for a fresh snapshot, for example after a dropped connection. */
+export interface FlowResyncMessage {
 	type: "resync";
-};
+}
+
+/** Messages sent from the browser to the extension. */
+export type FlowClientMessage =
+	| FlowCollapseMessage
+	| FlowDraftMessage
+	| FlowLabelMessage
+	| FlowNavigateMessage
+	| FlowPromptMessage
+	| FlowResyncMessage;

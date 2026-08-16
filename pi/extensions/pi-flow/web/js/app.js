@@ -17,13 +17,19 @@ const dom = {
 	inspectorSubtitle: requireElement("inspector-subtitle", HTMLElement),
 	inspectorBadges: requireElement("inspector-badges", HTMLElement),
 	inspectorBody: requireElement("inspector-body", HTMLElement),
+	inspectorActions: requireElement("inspector-actions", HTMLElement),
+	navEdit: requireElement("nav-edit", HTMLButtonElement),
+	navContinue: requireElement("nav-continue", HTMLButtonElement),
+	navLabel: requireElement("nav-label", HTMLInputElement),
 	sessionName: requireElement("session-name", HTMLElement),
 	sessionMeta: requireElement("session-meta", HTMLElement),
 	fit: requireElement("fit", HTMLButtonElement),
 	zoomIn: requireElement("zoom-in", HTMLButtonElement),
 	zoomOut: requireElement("zoom-out", HTMLButtonElement),
-	follow: requireElement("follow", HTMLButtonElement),
+	auto: requireElement("auto", HTMLButtonElement),
 	connection: requireElement("connection", HTMLElement),
+	emptyPrompt: requireElement("empty-prompt", HTMLFormElement),
+	emptyPromptInput: requireElement("empty-prompt-input", HTMLTextAreaElement),
 };
 
 const canvas = new FlowCanvas(dom, {
@@ -32,10 +38,16 @@ const canvas = new FlowCanvas(dom, {
 		store.pin(id, x, y);
 		draw();
 	},
+	onPrompt: submitPrompt,
+	onDraft: persistDraft,
+	onAutoChange: syncAutoButton,
 });
 
 /** @type {FlowSessionInfo | undefined} */
 let session;
+
+/** @type {string} */
+let draft = "";
 
 /** @type {number} */
 let revision = -1;
@@ -51,7 +63,7 @@ const client = new FlowClient(socketUrl(), {
 		switch (message.type) {
 			case "snapshot":
 				revision = message.revision;
-				session = message.session;
+				applySession(message.session);
 				store.replace(message.graph);
 				break;
 			case "patch":
@@ -60,7 +72,7 @@ const client = new FlowClient(socketUrl(), {
 				}
 
 				revision = message.revision;
-				session = message.session;
+				applySession(message.session);
 				store.apply(message.delta);
 				break;
 			case "closing":
@@ -78,14 +90,73 @@ dom.fit.addEventListener("click", () => canvas.fit());
 dom.zoomIn.addEventListener("click", () => canvas.zoomBy(1.2));
 dom.zoomOut.addEventListener("click", () => canvas.zoomBy(1 / 1.2));
 dom.inspectorClose.addEventListener("click", () => canvas.select(undefined));
-dom.follow.classList.toggle("on", canvas.follow);
-dom.follow.addEventListener("click", () => {
-	canvas.follow = !canvas.follow;
-	dom.follow.classList.toggle("on", canvas.follow);
+syncAutoButton(canvas.auto);
+dom.auto.addEventListener("click", () => {
+	canvas.auto = !canvas.auto;
+});
+dom.emptyPrompt.addEventListener("submit", (event) => {
+	event.preventDefault();
+	submitPrompt(dom.emptyPromptInput.value, session?.busy ? "followUp" : undefined);
+});
+dom.emptyPromptInput.addEventListener("input", () => persistDraft(dom.emptyPromptInput.value));
+dom.emptyPromptInput.addEventListener("keydown", (event) => {
+	if (event.key !== "Enter" || event.shiftKey) {
+		return;
+	}
+
+	event.preventDefault();
+	if ((event.metaKey || event.ctrlKey) && session?.busy) {
+		submitPrompt(dom.emptyPromptInput.value, "steer");
+		return;
+	}
+
+	dom.emptyPrompt.requestSubmit();
+});
+dom.nodes.addEventListener("click", (event) => {
+	const button = event.target instanceof Element ? event.target.closest(".node-expand") : null;
+	if (!(button instanceof HTMLButtonElement)) {
+		return;
+	}
+
+	event.preventDefault();
+	event.stopPropagation();
+	const card = button.closest(".flow-node");
+	const id = card instanceof HTMLElement ? card.dataset.id : undefined;
+	if (!id) {
+		return;
+	}
+
+	client.send({ type: "collapse", id, expanded: button.dataset.expanded !== "true" });
+});
+dom.navEdit.addEventListener("click", () => {
+	const entryId = dom.navEdit.dataset.entryId;
+	if (entryId) {
+		client.send({ type: "navigate", entryId, mode: "edit" });
+	}
+});
+dom.navContinue.addEventListener("click", () => {
+	const entryId = dom.navContinue.dataset.entryId;
+	if (entryId) {
+		client.send({ type: "navigate", entryId, mode: "continue" });
+	}
+});
+dom.navLabel.addEventListener("change", () => {
+	const entryId = dom.navLabel.dataset.entryId;
+	if (!entryId) {
+		return;
+	}
+
+	const label = dom.navLabel.value.trim();
+	client.send({ type: "label", entryId, label: label.length > 0 ? label : undefined });
 });
 
 window.addEventListener("keydown", (event) => {
-	if (event.target instanceof HTMLInputElement || event.metaKey || event.ctrlKey) {
+	if (
+		event.target instanceof HTMLInputElement ||
+		event.target instanceof HTMLTextAreaElement ||
+		event.metaKey ||
+		event.ctrlKey
+	) {
 		return;
 	}
 
@@ -113,7 +184,52 @@ client.connect();
 
 /** Redraw the canvas from the current store contents. */
 function draw() {
-	canvas.render(store.nodes, store.edges, store.pinned);
+	canvas.render(store.nodes, store.edges, store.pinned, { draft, busy: Boolean(session?.busy) });
+}
+
+/**
+ * Apply session metadata and restore draft text when the editor is not focused.
+ * @param {FlowSessionInfo} next Session payload from the extension.
+ */
+function applySession(next) {
+	session = next;
+	const active = document.activeElement;
+	if (!(active instanceof HTMLTextAreaElement)) {
+		draft = next.draft;
+		dom.emptyPromptInput.value = draft;
+	}
+}
+
+/**
+ * Submit a prompt from the graph editor.
+ * @param {string} text Prompt text.
+ * @param {import("./protocol.js").FlowDeliverAs} [deliverAs] Delivery mode while the agent is busy.
+ */
+function submitPrompt(text, deliverAs) {
+	if (text.trim().length === 0) {
+		return;
+	}
+
+	client.send({ type: "prompt", text, deliverAs });
+	draft = "";
+	dom.emptyPromptInput.value = "";
+}
+
+/**
+ * Persist draft text locally and on the extension.
+ * @param {string} text Draft prompt.
+ */
+function persistDraft(text) {
+	draft = text;
+	client.send({ type: "draft", text });
+}
+
+/**
+ * Mirror Auto mode onto the toolbar toggle.
+ * @param {boolean} enabled Whether Auto is on.
+ */
+function syncAutoButton(enabled) {
+	dom.auto.classList.toggle("on", enabled);
 }
 
 /** Write session metadata into the toolbar. */
@@ -124,8 +240,36 @@ function showSession() {
 
 	renderConnection();
 	dom.sessionName.textContent = session.name ?? "Untitled session";
-	dom.sessionMeta.textContent = [session.cwd, session.model, session.sessionId.slice(0, 8)].filter(Boolean).join(" · ");
+	dom.sessionMeta.textContent = [
+		session.cwd,
+		session.model,
+		formatUsage(session.contextUsage),
+		session.sessionId.slice(0, 8),
+	]
+		.filter(Boolean)
+		.join(" · ");
 	document.title = session.name ? `${session.name} · pi-flow` : "pi-flow";
+}
+
+/**
+ * Format context usage for the toolbar.
+ * @param {FlowSessionInfo["contextUsage"]} usage Usage from Pi, when known.
+ * @returns {string | undefined} Short usage label.
+ */
+function formatUsage(usage) {
+	if (!usage) {
+		return undefined;
+	}
+
+	if (usage.percent !== null) {
+		return `${Math.round(usage.percent)}% ctx`;
+	}
+
+	if (usage.tokens !== null) {
+		return `${usage.tokens.toLocaleString()} tok`;
+	}
+
+	return `${usage.contextWindow.toLocaleString()} window`;
 }
 
 /**
@@ -170,9 +314,16 @@ function showInspector(node) {
 	}
 
 	dom.inspector.hidden = false;
-	dom.inspectorTitle.textContent = node.title;
+	dom.inspectorTitle.textContent = node.label ? `${node.title} · ${node.label}` : node.title;
 	dom.inspectorSubtitle.textContent = node.subtitle ?? "";
 	dom.inspectorBody.textContent = node.detail ?? node.preview ?? "";
+	dom.inspectorActions.hidden = !node.entryId;
+	dom.navEdit.hidden = node.kind !== "user" || !node.entryId;
+	dom.navContinue.hidden = !node.entryId;
+	dom.navEdit.dataset.entryId = node.entryId ?? "";
+	dom.navContinue.dataset.entryId = node.entryId ?? "";
+	dom.navLabel.dataset.entryId = node.entryId ?? "";
+	dom.navLabel.value = node.label ?? "";
 
 	const badges = [node.status, ...(node.badges ?? [])];
 	if (node.timestamp) {

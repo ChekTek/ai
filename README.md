@@ -247,19 +247,57 @@ starting another server.
 /flow stop      close the canvas and stop the server
 ```
 
-The canvas is read-only. It reconstructs the existing session tree on open, then
-streams user and assistant messages, tool-call lifecycle, and turn state as they
-happen. Each assistant message with tool calls fans out into one branch per call
-so parallel tools sit side by side, and every branch rejoins whatever follows on
-the spine. Cards show live status (streaming, running, success, error, aborted);
-entries that are not on the active branch are dimmed.
+The canvas reconstructs the existing session tree on open, then streams user and
+assistant messages, tool-call lifecycle, and turn state as they happen. Each
+assistant message with tool calls fans out into one branch per call so parallel
+tools sit side by side, and every branch rejoins whatever follows on the spine.
+Cards show live status (streaming, running, success, error, aborted); entries
+that are not on the active branch are dimmed.
+
+The latest active main-flow node hosts an embedded prompt editor. Submitting
+from the graph uses `pi.sendUserMessage()` with prompt-template expansion, so
+slash commands and skills behave as they do in Pi. While the agent is busy,
+Enter queues a follow-up and ⌘Enter steers; queued prompts appear as distinct
+cards until Pi accepts them. Draft text survives ordinary graph updates and
+browser reconnects.
+
+Auto camera mode is on by default. It animates toward the latest relevant
+activity, keeps the latest main node near the centre, and keeps a handful of
+nearby branches in view when space allows. Running branch work is followed
+temporarily, then the camera returns to the main thread. Panning, zooming, or
+dragging a node turns Auto off; the Auto control restores it. Dragged cards stay
+pinned so incremental layout does not move them.
+
+Each model call adds a compact context snapshot branch. Consecutive snapshots
+are diffed into added, removed, and retained items. Loaded context files,
+selected tools, structured system-prompt inputs, and skills come from Pi's
+`before_agent_start` options. Explicit `/skill:name` input is attributed;
+unattributed skill context is labelled inferred. Context usage and the active
+model appear on the snapshot and in the toolbar. Cards stay collapsed by
+default; Expand reveals item lists without logging full prompt bodies.
+Compaction is a funnel node that distinguishes summarized history from the
+recent entries Pi retained, including when `/flow` opens an existing session.
+
+The supported `subagent` tool expands into live child branches for single,
+parallel, and chained modes, including nested messages from tool details.
+Completed children rejoin the parent tool result. Nested branches can be
+collapsed. Other extensions can report spawned work on `pi.events` channel
+`pi-flow:spawn:v1` with `{ version: 1, parentId, taskId, state, label, type,
+messages }`. Shell tools without those events stay opaque process cards.
+
+The graph marks the active path, the current leaf, and historical branches.
+Selecting a historical user message can navigate to its parent, restore the
+prompt in the graph editor, and submit a new persistent Pi branch. Selecting a
+non-user node continues from that entry. Navigation uses `ctx.navigateTree()`
+from the last `/flow` command context, asks Pi for a branch-summary choice, and
+resyncs after completion or cancellation. Node labels are stored with
+`pi.setLabel()` and survive reloads.
 
 Interaction is pan (drag the background or scroll), zoom (wheel, `+`/`-`, or the
 toolbar), node drag, click to select and inspect, `F` to fit the graph, and `Esc`
-to clear the selection. Follow mode keeps the newest activity in view. Layout is
-incremental: rows come from conversation depth and columns are packed so
-subtrees never collide, which keeps existing cards in place as the conversation
-grows.
+to clear the selection. Layout is incremental: rows come from conversation depth
+and columns are packed so subtrees never collide, which keeps existing cards in
+place as the conversation grows.
 
 The server binds to `127.0.0.1` only, rejects requests whose `Host` header is not
 a loopback address, and requires a per-process random token supplied in the URL

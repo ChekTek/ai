@@ -20,7 +20,13 @@ const CARD_HEIGHTS = {
 	compaction: 104,
 	branchSummary: 104,
 	custom: 104,
+	queued: 112,
+	context: 112,
+	skill: 96,
 };
+
+/** Extra height reserved on the card that hosts the prompt editor. */
+const PROMPT_HOST_EXTRA = 118;
 
 /** Minimum separation between sibling subtrees, in columns. */
 const SUBTREE_GAP = 1;
@@ -51,7 +57,8 @@ const SUBTREE_GAP = 1;
  * @returns {number} Card height in pixels.
  */
 export function cardHeight(node) {
-	return CARD_HEIGHTS[node.kind] ?? 104;
+	const base = CARD_HEIGHTS[node.kind] ?? 104;
+	return node.promptHost ? base + PROMPT_HOST_EXTRA : base;
 }
 
 /**
@@ -193,7 +200,7 @@ function packSiblings(siblings, subtrees, centre = false) {
 		const subtree = subtrees.get(sibling.id);
 		const siblingExtents = subtree?.extents ?? new Map();
 		if (index === 0) {
-			extents = siblingExtents;
+			extents = cloneExtents(siblingExtents);
 			offsets.set(sibling.id, 0);
 			return;
 		}
@@ -214,6 +221,22 @@ function packSiblings(siblings, subtrees, centre = false) {
 	}
 
 	return { offsets, extents };
+}
+
+/**
+ * Copy an extent map, including the `[min, max]` arrays, so later packing cannot
+ * mutate a subtree that has already been stored.
+ * @param {Map<number, [number, number]>} source Extents to copy.
+ * @returns {Map<number, [number, number]>} Independent copy.
+ */
+function cloneExtents(source) {
+	/** @type {Map<number, [number, number]>} */
+	const cloned = new Map();
+	for (const [depth, range] of source) {
+		cloned.set(depth, [range[0], range[1]]);
+	}
+
+	return cloned;
 }
 
 /**
