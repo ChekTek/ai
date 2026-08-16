@@ -36,6 +36,9 @@ OPENCODE_LEGACY_RULES_DEST="$OPENCODE_ROOT/AGENTS.md"
 OPENCODE_CONTEXT_MANAGER_DEST="$OPENCODE_ROOT/context-manager.ts"
 OPENCODE_TUI_PLUGIN_DEST="$OPENCODE_ROOT/context-report-tui.ts"
 OPENCODE_TUI_CONFIG_DEST="$OPENCODE_ROOT/tui.jsonc"
+PI_CURSOR_SDK_PACKAGE="git:github.com/fitchmultz/pi-cursor-sdk@v0.3.3"
+# npm has only published through 0.2.0; v0.3.3 is the GitHub tag this setup pins.
+PI_CURSOR_SDK_INSTALL="$HOME/.pi/agent/git/github.com/fitchmultz/pi-cursor-sdk"
 
 CLEAN=0
 ASSUME_YES=0
@@ -419,6 +422,21 @@ install_pi_extension_dependencies() {
   fi
 
   npm install --prefix "$extension" --omit=dev --ignore-scripts --no-audit --no-fund
+}
+
+install_pi_cursor_sdk_package() {
+  if ! command -v pi >/dev/null 2>&1; then
+    echo "skip $PI_CURSOR_SDK_PACKAGE: pi is not on PATH"
+    return 0
+  fi
+
+  if [ -d "$PI_CURSOR_SDK_INSTALL" ] && [ -f "$HOME/.pi/agent/settings.json" ] &&
+    grep -F "$PI_CURSOR_SDK_PACKAGE" "$HOME/.pi/agent/settings.json" >/dev/null; then
+    echo "already installed: $PI_CURSOR_SDK_PACKAGE"
+    return 0
+  fi
+
+  pi install "$PI_CURSOR_SDK_PACKAGE"
 }
 
 publish_pi_themes() {
@@ -946,6 +964,7 @@ publish_skills "$COPILOT_SKILLS_DEST" "copilot/skills" copilot
 publish_skills "$PI_SKILLS_DEST" "pi/skills" pi
 publish_skills "$CODEX_SKILLS_DEST" "codex/skills" codex
 publish_pi_extensions
+install_pi_cursor_sdk_package
 publish_pi_themes
 publish_pi_keybindings
 publish_rules "$CLAUDE_RULES_DEST" "claude/rules" claude
