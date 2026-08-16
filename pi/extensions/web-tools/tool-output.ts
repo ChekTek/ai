@@ -101,7 +101,7 @@ export async function projectFetchPageResultToPiToolResult(
 		return ok({
 			content: [
 				textContent(
-					`Fetched image from ${result.finalUrl} (${result.mime || "image"}, ${formatSize(result.bytes)}). Image was too large to inline; open the URL.`,
+					`Fetched image from ${result.finalUrl} (${result.mime || "image"}, ${formatSize(result.bytes)}). Could not inline the image; open the URL.`,
 				),
 			],
 			details: {
