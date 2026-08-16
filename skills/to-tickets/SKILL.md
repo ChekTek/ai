@@ -54,9 +54,8 @@ is visible to others, so get explicit approval before creating anything.
 
 ## 6. Create the issues
 
-Use `gh issue create` for each approved ticket. Always add the `needs review`
-label — create it first if it doesn't exist yet, with description "An agent
-created this ticket and requires manual review" and color `#d93f0b`. Reference
-blocking tickets in the body (e.g. "Depends on #12").
+Use `gh issue create` for each approved ticket. Always add `needs review`
+(create the label if needed, per general rules). Reference blocking tickets
+in the body (e.g. "Depends on #12").
 
 After creation, report the created issue URLs in dependency order.

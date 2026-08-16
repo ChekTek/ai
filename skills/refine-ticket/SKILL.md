@@ -27,21 +27,13 @@ discussion that may already answer questions.
 
 ## 2. Investigate before asking
 
-Explore the code the issue touches so questions are informed, not generic.
-The code is the source of truth — verify the issue's claims against actual
-behavior and surface mismatches instead of assuming the issue is right.
+Explore the code the issue touches. Code is the source of truth — surface mismatches instead of assuming the issue is right.
 
 ## 3. Ask questions until the plan is clear
 
-Treat the conversation as the refinement work: ask one focused question at a
-time, explain why it matters, and use a question tool with choices when
-available. Recommend a strong default first when one exists.
+Ask one focused question at a time; use a question tool with a recommended default.
 
-Ask about what is actually unresolved — scope boundaries, user-facing
-behavior, edge cases, data and API contracts, affected surfaces, migration —
-not a generic checklist. Skip anything already answered by the issue,
-comments, or code. Stop when the remaining unknowns are implementation-time
-discoveries rather than product decisions.
+Ask what is actually unresolved (scope, user-facing behavior, edge cases, contracts, surfaces, migration). Skip anything already answered. Stop when leftovers are implementation-time discoveries, not product decisions.
 
 ## 4. Draft the updated ticket and get approval
 
@@ -64,10 +56,7 @@ approval before writing anything.
 Write the approved body to a temp file and apply it with
 `gh issue edit <ref> --body-file <file>` (add `--title` if it changed).
 
-Then fix the labels: remove `needs refinement` if present, and make sure
-`needs review` is still on the issue — if it's missing add it, creating the
-label first if it doesn't exist, with description "An agent created this
-ticket and requires manual review" and color `#d93f0b`. Both in one call:
+Remove `needs refinement` if present; add `needs review` (create the label if needed, per general rules):
 
 ```sh
 gh issue edit <ref> --remove-label "needs refinement" --add-label "needs review"

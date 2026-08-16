@@ -1,12 +1,12 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { createOperationSignal, isOperationTimeoutError } from "./network.ts";
-import { FetchHttpTextClient, ExaSearchProvider } from "./providers/exa.ts";
-import type { SearchProvider } from "./providers/types.ts";
+import { createOperationSignal, FetchPublicWebClient, isOperationTimeoutError } from "./network.ts";
+import { DuckDuckGoSearchProvider } from "./providers/duckduckgo.ts";
+import { ExaSearchProvider, FetchHttpTextClient } from "./providers/exa.ts";
 import { appendExpandHint, appendExpandedPreview, getTextContent } from "./render.ts";
 import { SearchWeb, type SearchWebError } from "./search-web.ts";
-import { getWebSearchSettings, SEARCH_DEPTHS, type ToolInputParseError } from "./settings.ts";
+import { getWebFetchSettings, getWebSearchSettings, SEARCH_DEPTHS, type ToolInputParseError } from "./settings.ts";
 import {
 	TempFileToolOutputStore,
 	formatSearchResults,
@@ -40,10 +40,6 @@ export function createWebSearchTool(composition?: WebSearchToolComposition) {
 		label: "Web Search",
 		description: "Search the public web for current information and candidate URLs to inspect with webfetch.",
 		promptSnippet: "Search the public web for current information and relevant URLs",
-		promptGuidelines: [
-			"Use websearch when the user needs current public-web information or when the right URL is not yet known.",
-			"After picking a promising result, use webfetch on that URL for deeper inspection.",
-		],
 		parameters: Type.Object({
 			query: Type.String({ description: "Search query." }),
 			maxResults: Type.Optional(
@@ -160,19 +156,15 @@ export function toWebSearchToolError(error: WebSearchBoundaryError): Error {
 
 function createDefaultWebSearchComposition(): WebSearchToolComposition {
 	const settings = getWebSearchSettings();
-	const provider = createSearchProvider(settings);
 	return {
 		settings,
-		searchWeb: new SearchWeb({ provider, settings }),
+		searchWeb: new SearchWeb({
+			provider: new ExaSearchProvider(settings.endpoint, new FetchHttpTextClient()),
+			fallback: new DuckDuckGoSearchProvider(new FetchPublicWebClient(), getWebFetchSettings()),
+			settings,
+		}),
 		outputStore: new TempFileToolOutputStore(),
 	};
-}
-
-function createSearchProvider(settings: WebToolsSettings["search"]): SearchProvider {
-	switch (settings.provider) {
-		case "exa":
-			return new ExaSearchProvider(settings.endpoint, new FetchHttpTextClient());
-	}
 }
 
 function toWebSearchBoundaryError(

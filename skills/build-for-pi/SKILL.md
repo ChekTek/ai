@@ -2,6 +2,8 @@
 name: build-for-pi
 description: Restore Pi harness documentation into context and follow it when building Pi extensions, themes, skills, TUI, SDK, or related Pi internals. Use only when the user invokes this skill.
 disable-model-invocation: true
+metadata:
+  targets: "pi"
 ---
 
 # Build for Pi
