@@ -396,12 +396,18 @@ The script lists removals and asks for confirmation.
 Pass `--yes` (`-Yes` on Windows) to skip the prompt; this is required for a
 non-interactive clean.
 
-## Copilot Agent Orchestration
+## Agent Orchestration
 
-`orchestrate` delegates repository work to a Copilot CLI model in another
-family so the worker's blind spots differ from the reviewer's. Pass the family
-as the first argument: `gpt`, `claude`, or `grok`. Wrappers
-`orchestrate-gpt`, `orchestrate-claude`, and `orchestrate-grok` pin that family.
+These skills are user-only (`disable-model-invocation: true`). Workers are
+isolated `pi -p` children on the GitHub Copilot provider, not the Copilot CLI.
+Requires `pi` installed and GitHub Copilot login (`/login` in Pi).
 
-The calling agent must verify the resulting diff. Requires `copilot` installed
-and authenticated.
+`orchestrate` delegates repository work to one child in another model family
+so the worker's blind spots differ from the reviewer's. Pass the family as the
+first argument: `gpt`, `claude`, or `grok`. Wrappers `orchestrate-gpt`,
+`orchestrate-claude`, and `orchestrate-grok` pin that family.
+
+`orchestrate-fleet` requires splitting the work across at least two children
+(scout, worker, reviewer, oracle) instead of doing it in the parent session.
+
+The calling agent must verify the resulting diff.
