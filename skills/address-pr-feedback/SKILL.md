@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 Treat the user's message as PR feedback to investigate and resolve. Don't bother telling me about your progress, just do the report back step at the end, then the GitHub prompt.
 
+Identify the PR from a URL in the message or `gh pr view` on the current branch. Check out that PR head with `gh pr checkout`, or verify the current branch already is it. If the working tree has unrelated local changes, stop and ask. Do this before validating or fixing.
+
 ## Workflow
 
 1. **Validate with a skeptical eye**
@@ -34,14 +36,14 @@ Treat the user's message as PR feedback to investigate and resolve. Don't bother
 
     After reporting back, if this feedback maps to an unresolved GitHub review thread, ask with a question tool when available:
 
-    - **Push and resolve** — commit the feedback fixes (not unrelated files), push the PR branch, then for each handled thread comment how it was resolved and mark the thread resolved.
+    - **Push and resolve** — verify the current branch is the PR head (check it out if not; stop on unrelated local changes), commit the feedback fixes (not unrelated files), push the PR branch, then for each handled thread comment how it was resolved and mark the thread resolved.
     - **Keep local** — leave the code unpushed; do not comment or resolve.
 
     Only proceed on an explicit choice.
 
-    Identify the PR from a URL in the message or `gh pr view` on the current branch. Fetch unresolved threads (include GraphQL `id`, which starts with `PRRT_`) and match by path, line, and comment body.
+    Fetch unresolved threads (include GraphQL `id`, which starts with `PRRT_`) and match by path, line, and comment body.
 
-    On **Push and resolve**, for each handled thread, comment first, then resolve:
+    On **Push and resolve**, confirm the current branch is the PR head before committing or pushing. Then for each handled thread, comment first, then resolve:
 
     ```sh
     gh api graphql -f query='mutation($id:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id,body:$body}){comment{id}}}' -f id=<thread-id> -f body='<how it was resolved>'
