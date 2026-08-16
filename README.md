@@ -196,9 +196,8 @@ prefix.
 
 The extension also removes Pi's built-in self-documentation from that default
 prompt. Restore it for the rest of the session with `/skill:build-for-pi`.
-That skill is published only to Pi and defaults to `user only`
-(`disable-model-invocation: true`), so it is not in the model's initial
-context until you invoke it.
+That skill defaults to `user only` (`disable-model-invocation: true`), so it
+is not in the model's initial context until you invoke it.
 
 The scripts will not overwrite an unmanaged Codex `AGENTS.md`, because silently
 doing so would destroy user instructions. Pi leaves unmanaged `AGENTS.md` files
