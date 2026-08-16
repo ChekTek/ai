@@ -402,9 +402,8 @@ non-interactive clean.
 
 `orchestrate` delegates repository work to a Copilot CLI model in another
 family so the worker's blind spots differ from the reviewer's. Pass the family
-as the first argument: `gpt`, `claude`, `grok`, or `kimi`. Wrappers
-`orchestrate-gpt`, `orchestrate-claude`, `orchestrate-grok`, and
-`orchestrate-kimi` pin that family.
+as the first argument: `gpt`, `claude`, or `grok`. Wrappers
+`orchestrate-gpt`, `orchestrate-claude`, and `orchestrate-grok` pin that family.
 
 The calling agent must verify the resulting diff. Requires `copilot` installed
 and authenticated.

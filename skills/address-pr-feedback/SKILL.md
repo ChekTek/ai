@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Address PR Feedback
 
-Treat the user's message as PR feedback to investigate and resolve. Don't bother telling me about your progress, just do the report back step at the end, then the GitHub resolve prompt.
+Treat the user's message as PR feedback to investigate and resolve. Don't bother telling me about your progress, just do the report back step at the end, then the GitHub prompt.
 
 ## Workflow
 
@@ -22,22 +22,30 @@ Treat the user's message as PR feedback to investigate and resolve. Don't bother
     - If invalid, explain why the scenario cannot occur or is already handled, then stop without unrelated code changes.
 
 3. **Fix confirmed problems**
-    - Keep the fix local — do not push to the PR until the user has reviewed the change and approved pushing.
+    - Keep the fix local until the user answers the GitHub prompt.
 
 4. **Report back**
     - Lead with whether the feedback was valid or not.
     - Summarize the fix and verification succinctly.
     - Mention any intentionally unfixed speculative parts or residual risks.
 
-5. **Resolve on GitHub (ask first)**
+5. **GitHub prompt (ask first)**
     Skip this step when invoked from address-all-pr-feedback — that skill asks once at the end.
 
-    After reporting back, if this feedback maps to an unresolved GitHub review thread, ask whether to resolve the PR comments. Use a question tool with **Yes** / **No** when available; otherwise ask yes or no in the report. Only proceed on an explicit yes.
+    After reporting back, if this feedback maps to an unresolved GitHub review thread, ask with a question tool when available:
 
-    `gh` has no first-class resolve command. Identify the PR from a URL in the message or `gh pr view` on the current branch, fetch unresolved threads (include GraphQL `id`, which starts with `PRRT_`), and match by path, line, and comment body. Then:
+    - **Push and resolve** — commit the feedback fixes (not unrelated files), push the PR branch, then for each handled thread comment how it was resolved and mark the thread resolved.
+    - **Keep local** — leave the code unpushed; do not comment or resolve.
+
+    Only proceed on an explicit choice.
+
+    Identify the PR from a URL in the message or `gh pr view` on the current branch. Fetch unresolved threads (include GraphQL `id`, which starts with `PRRT_`) and match by path, line, and comment body.
+
+    On **Push and resolve**, for each handled thread, comment first, then resolve:
 
     ```sh
+    gh api graphql -f query='mutation($id:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id,body:$body}){comment{id}}}' -f id=<thread-id> -f body='<how it was resolved>'
     gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id=<thread-id>
     ```
 
-    Skip if there is no matching review thread. Plain discussion comments (`gh pr comment`) cannot be marked resolved. Do not push.
+    The reply must say how the item was handled (fix made, or why it was rejected). Skip if there is no matching review thread. Plain discussion comments (`gh pr comment`) cannot be marked resolved. If there is nothing to push, still comment and resolve.

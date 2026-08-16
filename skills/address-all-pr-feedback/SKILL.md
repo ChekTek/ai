@@ -1,6 +1,6 @@
 ---
 name: address-all-pr-feedback
-description: "Fetch every unresolved review thread and comment on a pull request and resolve each one using the address-pr-feedback workflow, keeping all fixes local until the user has reviewed them."
+description: "Fetch every unresolved review thread and comment on a pull request and resolve each one using the address-pr-feedback workflow, keeping all fixes local until the user chooses to push and resolve."
 argument-hint: "[PR number or URL]"
 disable-model-invocation: true
 ---
@@ -27,16 +27,21 @@ One review thread = one item; replies are context. Add actionable requests from 
 
 ## 3. Address each item
 
-Apply address-pr-feedback to each item (file/line + comments as the feedback). Skip that skill's GitHub resolve prompt; ask once in step 5. If the skill is not loaded, read `../address-pr-feedback/SKILL.md`.
+Apply address-pr-feedback to each item (file/line + comments as the feedback). Skip that skill's GitHub prompt; ask once in step 5. If the skill is not loaded, read `../address-pr-feedback/SKILL.md`.
 
-Don't narrate between items. Keep every fix local.
+Don't narrate between items. Keep every fix local until the prompt.
 
 ## 4. Report back
 
 One line per item — `path:line — valid / partially valid / invalid — fix made or reason rejected` — then cross-cutting notes (shared causes, verification, residual risks).
 
-Do not push until the user has reviewed; push only after they approve.
+## 5. GitHub prompt (ask first)
 
-## 5. Resolve on GitHub (ask first)
+After the report, ask once with a question tool when available:
 
-After the report, ask once whether to resolve the PR comments (Yes/No). On yes, resolve each handled thread from step 1 with the GraphQL mutation in address-pr-feedback. Do not resolve skipped threads. Discussion comments cannot be marked resolved. Do not push.
+- **Push and resolve** — commit the feedback fixes (not unrelated files), push the PR branch, then for each handled thread comment how it was resolved and mark the thread resolved.
+- **Keep local** — leave the code unpushed; do not comment or resolve.
+
+Only proceed on an explicit choice. Do not resolve skipped threads. Discussion comments cannot be marked resolved.
+
+On **Push and resolve**, comment first, then resolve, using the GraphQL mutations in address-pr-feedback and each handled thread's `id` from step 1. The reply must say how that item was handled. If there is nothing to push, still comment and resolve.

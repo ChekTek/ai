@@ -1,7 +1,7 @@
 ---
 name: orchestrate
-description: "Delegate coding work to another model family (GPT, Claude, Grok, or Kimi) through the Copilot CLI. Use when you want a cross-family worker instead of doing the work yourself."
-argument-hint: "[gpt|claude|grok|kimi] [task or goal]"
+description: "Delegate coding work to another model family (GPT, Claude, or Grok) through the Copilot CLI. Use when you want a cross-family worker instead of doing the work yourself."
+argument-hint: "[gpt|claude|grok] [task or goal]"
 disable-model-invocation: true
 ---
 
@@ -15,15 +15,14 @@ If no family is given, pick one you are not.
 
 - **gpt** — complex: `gpt-5.6-sol --effort high --mode autopilot --max-autopilot-continues 15`. Everyday: `gpt-5.6-terra --effort medium --mode autopilot`. Light: `gpt-5.6-luna --effort low`.
 - **claude** — complex: `claude-opus-5 --effort high --mode autopilot --max-autopilot-continues 15`. Everyday: `claude-sonnet-5 --effort medium --mode autopilot`. Light: `claude-sonnet-5 --effort low`.
-- **grok** — `grok-4.5` at `--effort high --mode autopilot --max-autopilot-continues 15` (complex), `--effort medium --mode autopilot` (everyday), or `--effort low` (light).
-- **kimi** — `kimi-k3` at `--effort max --mode autopilot --max-autopilot-continues 15` (complex), `--effort high --mode autopilot` (everyday), or `--effort low` (light). No `medium`.
+- **grok** — `grok-4.6` at `--effort high --mode autopilot --max-autopilot-continues 15` (complex), `--effort medium --mode autopilot` (everyday), or `--effort low` (light).
 
 Add-ons: `--context long_context` (large repo/diff), `--enable-all-github-mcp-tools` (issues, PRs, checks), `--allow-all-mcp-server-instructions`.
 
 ## Steps
 
 1. `git status --short` so unrelated changes are visible later.
-2. Ask clarifying questions. Split into sub-tasks and orchestrate each separately.
+2. Ask the user clarifying questions. Split into sub-tasks and orchestrate each separately.
 3. Pick model/effort from the list above.
 4. Prompt: objective, relevant files, what "done" means. Do not commit, push, or open a PR unless the user asked.
 5. Run:
