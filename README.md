@@ -22,6 +22,7 @@ skills/
 pi/
 ├── keybindings.json
 ├── extensions/
+│   ├── ask-user.ts
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
 │   ├── personas.ts
@@ -223,6 +224,18 @@ Code when using this setup:
 
 Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override Copilot's instruction folder.
 Set `CODEX_HOME` to override the Codex configuration folder.
+
+### Pi Ask User
+
+`pi/extensions/ask-user.ts` registers `ask_user`, a single-question picker the
+model can call instead of guessing. Each call shows 2–4 numbered options with a
+short trade-off description, plus an always-present **Type something.** row for
+custom feedback. Press 1–N to highlight an option, then Enter to confirm. After
+a custom answer, the model must restate it in chat and wait for confirmation
+before continuing.
+
+The tool is listed in Pi's available-tools prompt. Restart Pi after publishing
+so the extension loads.
 
 ### Pi Web Tools
 
