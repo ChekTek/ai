@@ -11,7 +11,7 @@ export type SearchQuery = string & { readonly __brand: "SearchQuery" };
 
 export type WebFetchFormat = "markdown" | "text" | "html";
 export type SearchDepth = "auto" | "fast" | "deep";
-export type SearchProviderName = "exa";
+export type SearchProviderName = "exa" | "duckduckgo";
 export type ContentKind = "html" | "text" | "raster-image" | "svg" | "binary";
 
 export type ParsePublicHttpUrlError =
@@ -33,7 +33,7 @@ export interface WebToolsSettings {
 	};
 	readonly search: {
 		readonly enabled: boolean;
-		readonly provider: SearchProviderName;
+		readonly provider: "exa";
 		readonly endpoint: PublicHttpUrl;
 		readonly timeoutSeconds: number;
 		readonly defaultMaxResults: number;

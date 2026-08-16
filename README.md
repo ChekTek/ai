@@ -12,6 +12,7 @@ user/global format each harness expects.
 ```text
 rules/
 ├── general.md
+├── rust.md
 ├── typescript.md
 └── streamdeck/
     └── ...
@@ -246,18 +247,16 @@ The update scripts run `npm install` in the extension folder before linking it,
 so `node_modules/` is generated locally and ignored by Git while
 `package-lock.json` is tracked.
 
-`webfetch` works without configuration. `websearch` needs an Exa MCP-compatible
-endpoint exported before Pi starts, otherwise the tool fails when it is first
-called:
+`webfetch` works without configuration. `websearch` uses Exa's public MCP
+endpoint (`https://mcp.exa.ai/mcp`) by default. Override it with
+`PI_WEB_TOOLS_EXA_ENDPOINT` if you run a different Exa-compatible MCP server.
+If Exa rate-limits (HTTP 429), search falls back to DuckDuckGo's keyless HTML
+results. Large tool output is truncated in the session; the full text is saved
+to a temp file and the model can `read` that path.
 
 ```bash
-export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"
+export PI_WEB_TOOLS_EXA_ENDPOINT="https://mcp.exa.ai/mcp"  # optional override
 ```
-
-Pi reads this from the environment of the process that launches it, so a
-GUI-launched editor using the ACP integration does not inherit a shell profile.
-Set it where that process can see it, or start the editor from a shell that
-exports it.
 
 Extensions resolve once at startup, so restart Pi after publishing a new one.
 
@@ -399,13 +398,10 @@ non-interactive clean.
 
 ## Copilot Agent Orchestration
 
-Skills that delegate repository work to a Copilot CLI model in another model
-family so the worker's blind spots differ from the reviewer's:
+`orchestrate` delegates repository work to a Copilot CLI model in another
+family so the worker's blind spots differ from the reviewer's. Pass the family
+as the first argument: `gpt`, `claude`, or `grok`. Wrappers
+`orchestrate-gpt`, `orchestrate-claude`, and `orchestrate-grok` pin that family.
 
-- `orchestrate-gpt` — use from a non-GPT model; dispatches Sol, Terra, or Luna.
-- `orchestrate-claude` — use from a non-Claude model; dispatches Opus 5 or Sonnet 5.
-- `orchestrate-grok` — use from a non-Grok model; dispatches Grok 4.5 by effort.
-- `orchestrate-kimi` — use from a non-Kimi model; dispatches Kimi K3 by effort.
-
-Each requires the calling agent to verify the resulting diff. The skills expect
-`copilot` to be installed and authenticated.
+The calling agent must verify the resulting diff. Requires `copilot` installed
+and authenticated.

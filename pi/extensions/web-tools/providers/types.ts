@@ -27,3 +27,17 @@ export interface SearchProvider {
 }
 
 export type SearchRequest = SearchProviderRequest;
+
+/** True when a search-provider error is an HTTP 429 or an explicit rate-limit message. */
+export function isSearchRateLimitError(error: SearchProviderError): boolean {
+	if (error._tag === "SearchProviderCancelled") {
+		return false;
+	}
+	if (error._tag === "SearchProviderStatusRejected") {
+		return error.status === 429;
+	}
+	if (error._tag === "SearchProviderReturnedError") {
+		return /rate limit|too many requests|\b429\b/i.test(error.safeMessage);
+	}
+	return false;
+}

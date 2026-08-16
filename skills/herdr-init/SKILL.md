@@ -6,49 +6,20 @@ disable-model-invocation: true
 
 # Initialize Herdr Workspace
 
-Create the standard Herdr layout in the calling workspace and current working
-directory. Tab titles must match exactly, including their numeric prefixes:
+Same `HERDR_ENV=1` gate as herdr; stop if missing. `herdr tab` is the syntax authority.
 
-1. `1 - agent`: run `opencode`.
-2. `2 - editor`: run `fresh`.
-3. `3 - git`: run `lazygit`.
-4. `4 - terminal`: leave an available shell.
-5. `5 - process`: leave an available shell.
+Create this layout in the calling workspace and current directory. Titles must match, including numeric prefixes:
 
-Before issuing any Herdr command, verify that this agent is running inside a
-Herdr-managed pane:
+1. `1 - agent`: `opencode`
+2. `2 - editor`: `fresh`
+3. `3 - git`: `lazygit`
+4. `4 - terminal`: available shell
+5. `5 - process`: available shell
 
-```bash
-test "${HERDR_ENV:-}" = 1
-```
+This replaces existing tabs. Create all five first (current dir as cwd, `--no-focus` when supported), then close every tab that existed before. Do not skip creation because a matching name exists. Read IDs from JSON. Do not inspect existing tabs beyond IDs needed to close them.
 
-If the check fails, say that you are not running inside Herdr and stop. Do not
-inspect or control the focused Herdr session from outside Herdr.
+On the new root panes: `herdr pane run` → `opencode`, `fresh --no-restore`, `lazygit`. After Fresh starts, send `ctrl+b` so the file explorer shows (no CLI flag for that). Leave `terminal` and `process` at a shell prompt.
 
-The installed CLI is the authority for syntax. First inspect the tab command
-group:
+Close original tabs only after the five replacements exist and their commands are submitted. Close the caller's tab last — that kills this agent.
 
-```bash
-herdr tab
-```
-
-This workflow is destructive. Create all five replacement tabs in the current
-workspace using the current directory as their cwd, then close every tab that
-existed before the invocation. Do not read or inspect existing tabs beyond the
-minimum needed to obtain their IDs for closure. Do not skip creation because a
-matching name already exists. Read tab and root-pane IDs from the JSON response
-instead of deriving them. Preserve the user's focus with `--no-focus` when
-supported.
-
-For `agent`, `editor`, and `git`, use `herdr pane run` on the new tab's root
-pane to launch `opencode`, `fresh --no-restore`, and `lazygit`, respectively. Once
-Fresh has started, use the pane input command with `ctrl+b` to show its file
-explorer. Fresh has no command-line option that opens the file explorer
-directly. Leave `terminal` and `process` at their interactive shell prompts.
-
-Close the original tabs only after all five replacement tabs have been created
-and their foreground commands submitted. Close the caller's tab last, because
-doing so terminates this agent and prevents any further commands or response.
-
-Do not create a workspace, worktree, or pane split. Do not focus a created tab
-unless the user asks to switch to it.
+Do not create a workspace, worktree, or pane split. Do not focus a created tab unless asked.
