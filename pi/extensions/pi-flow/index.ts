@@ -3,6 +3,7 @@ import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@e
 import { FlowService } from "./src/flow-service.ts";
 import type { FlowAgentMessage } from "./src/messages.ts";
 import { getProcessState } from "./src/process-state.ts";
+import { asSpawnEvent, FLOW_SPAWN_CHANNEL } from "./src/spawn-protocol.ts";
 
 /**
  * Register the pi-flow conversation canvas.
@@ -13,7 +14,7 @@ import { getProcessState } from "./src/process-state.ts";
  * @param pi Extension API supplied by Pi.
  */
 export default function piFlowExtension(pi: ExtensionAPI): void {
-	const service = new FlowService();
+	const service = new FlowService(pi);
 
 	pi.registerCommand("flow", {
 		description: "Open or focus the pi-flow conversation graph for this session",
@@ -94,10 +95,32 @@ export default function piFlowExtension(pi: ExtensionAPI): void {
 
 	pi.on("turn_start", (_event, ctx) => service.schedule(ctx));
 	pi.on("turn_end", (_event, ctx) => service.schedule(ctx));
-	pi.on("session_compact", (_event, ctx) => service.publish(ctx));
+	pi.on("input", (event) => {
+		service.live.context.noteInput(event.text);
+	});
+	pi.on("before_agent_start", (event) => {
+		service.live.context.notePromptOptions(event.systemPromptOptions);
+	});
+	pi.on("context", (event, ctx) => {
+		service.live.context.capture(event.messages, ctx);
+		service.schedule(ctx);
+	});
+	pi.on("session_compact", (event, ctx) => {
+		service.live.context.noteCompaction(event.compactionEntry.id, event.reason);
+		service.publish(ctx);
+	});
 	pi.on("session_tree", (_event, ctx) => service.publish(ctx));
 	pi.on("session_info_changed", (_event, ctx) => service.publish(ctx));
 	pi.on("model_select", (_event, ctx) => service.publish(ctx));
+	pi.events.on(FLOW_SPAWN_CHANNEL, (data) => {
+		const spawn = asSpawnEvent(data);
+		if (!spawn) {
+			return;
+		}
+
+		service.live.noteSpawn(spawn);
+		service.refresh();
+	});
 }
 
 /**
@@ -123,6 +146,7 @@ async function handleCommand(service: FlowService, args: string, ctx: ExtensionC
 		}
 		default: {
 			try {
+				service.setCommandContext(ctx);
 				const url = await service.open(ctx);
 				service.publish(ctx);
 				notify(ctx, `pi-flow canvas: ${url}`, "info");

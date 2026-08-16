@@ -80,7 +80,7 @@ export class GraphStore {
 	 * Remember a node position chosen by dragging.
 	 * @param {string} id Node id.
 	 * @param {number} x Centre x in graph space.
-	 * @param {number} y Centre y in graph space.
+	 * @param {number} y Top edge y in graph space.
 	 */
 	pin(id, x, y) {
 		this.#pinned.set(id, { x, y });
