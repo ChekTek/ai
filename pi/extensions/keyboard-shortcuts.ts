@@ -20,6 +20,8 @@ const RAW_SHORTCUTS = [
 /** Status keys shown on the cwd line above the model (`modes.ts`, `personas.ts`). */
 const CWD_STATUS_KEYS = ["mode", "persona"] as const;
 const CWD_STATUS_KEY_SET = new Set<string>(CWD_STATUS_KEYS);
+/** Extension statuses that should not occupy their own footer line. */
+const HIDDEN_STATUS_KEYS = new Set(["cursor"]);
 
 /** Formats a token count for the compact footer. */
 function formatTokens(count: number): string {
@@ -139,7 +141,7 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 					}
 
 					const statusLines = [...statuses]
-						.filter(([key]) => !CWD_STATUS_KEY_SET.has(key))
+						.filter(([key]) => !CWD_STATUS_KEY_SET.has(key) && !HIDDEN_STATUS_KEYS.has(key))
 						.map(([, status]) => truncateToWidth(status, width, theme.fg("dim", "...")));
 					const separator = theme.fg("borderMuted", "─".repeat(Math.max(0, width)));
 					const hintSeparator = theme.fg("dim", " · ");
