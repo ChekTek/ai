@@ -1,7 +1,11 @@
 {
   "app.thinking.toggle": [],
   "app.tools.expand": [],
-  "app.model.cycleForward": [],
   "app.model.cycleBackward": [],
-  "app.message.followUp": []
+  "app.message.followUp": [],
+  "app.message.copy": [],
+  "app.editor.external": [],
+  "app.session.toggleNamedFilter": [],
+  "app.thinking.cycle": "ctrl+e",
+  "tui.editor.cursorLineEnd": ["end", "ctrl+end"]
 }
