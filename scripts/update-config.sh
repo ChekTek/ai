@@ -26,9 +26,7 @@ PI_LEGACY_RULES_DEST="$HOME/.pi/agent/AGENTS.md"
 CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
 CODEX_SKILLS_DEST="$CODEX_ROOT/skills"
 CODEX_RULES_DEST="$CODEX_ROOT/AGENTS.md"
-PI_CURSOR_SDK_PACKAGE="git:github.com/fitchmultz/pi-cursor-sdk@v0.3.3"
-# npm has only published through 0.2.0; v0.3.3 is the GitHub tag this setup pins.
-PI_CURSOR_SDK_INSTALL="$HOME/.pi/agent/git/github.com/fitchmultz/pi-cursor-sdk"
+LEGACY_PI_CURSOR_SDK_PACKAGE="git:github.com/fitchmultz/pi-cursor-sdk"
 
 CLEAN=0
 ASSUME_YES=0
@@ -380,6 +378,19 @@ publish_skills() {
   done
 }
 
+extension_has_prepare_script() {
+  [ -f "$1/package.json" ] || return 1
+  if command -v node >/dev/null 2>&1; then
+    node --input-type=commonjs -e '
+      const fs = require("fs");
+      const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      process.exit(pkg.scripts && pkg.scripts.prepare ? 0 : 1);
+    ' "$1/package.json" || return 1
+    return 0
+  fi
+  grep -Eq '"prepare"[[:space:]]*:' "$1/package.json"
+}
+
 install_pi_extension_dependencies() {
   extension="$1"
   [ -f "$extension/package.json" ] || return 0
@@ -390,7 +401,11 @@ install_pi_extension_dependencies() {
       return 1
     fi
 
-    pnpm install --dir "$extension" --prod --frozen-lockfile --ignore-scripts
+    pnpm_args=(install --dir "$extension" --prod --frozen-lockfile)
+    if ! extension_has_prepare_script "$extension"; then
+      pnpm_args+=(--ignore-scripts)
+    fi
+    pnpm "${pnpm_args[@]}"
     return 0
   fi
 
@@ -399,22 +414,27 @@ install_pi_extension_dependencies() {
     return 1
   fi
 
-  npm install --prefix "$extension" --omit=dev --ignore-scripts --no-audit --no-fund
+  npm_args=(install --prefix "$extension" --omit=dev --no-audit --no-fund)
+  if ! extension_has_prepare_script "$extension"; then
+    npm_args+=(--ignore-scripts)
+  fi
+  npm "${npm_args[@]}"
 }
 
-install_pi_cursor_sdk_package() {
+remove_legacy_pi_cursor_sdk_package() {
+  settings="$HOME/.pi/agent/settings.json"
+  if [ ! -f "$settings" ] || ! grep -F "$LEGACY_PI_CURSOR_SDK_PACKAGE" "$settings" >/dev/null; then
+    return 0
+  fi
+
   if ! command -v pi >/dev/null 2>&1; then
-    echo "skip $PI_CURSOR_SDK_PACKAGE: pi is not on PATH"
+    echo "skip removing $LEGACY_PI_CURSOR_SDK_PACKAGE: pi is not on PATH" >&2
+    echo "remove that package from $settings before starting Pi so Cursor does not load twice" >&2
     return 0
   fi
 
-  if [ -d "$PI_CURSOR_SDK_INSTALL" ] && [ -f "$HOME/.pi/agent/settings.json" ] &&
-    grep -F "$PI_CURSOR_SDK_PACKAGE" "$HOME/.pi/agent/settings.json" >/dev/null; then
-    echo "already installed: $PI_CURSOR_SDK_PACKAGE"
-    return 0
-  fi
-
-  pi install "$PI_CURSOR_SDK_PACKAGE"
+  pi remove "$LEGACY_PI_CURSOR_SDK_PACKAGE"
+  echo "removed package: $LEGACY_PI_CURSOR_SDK_PACKAGE"
 }
 
 publish_pi_themes() {
@@ -774,7 +794,7 @@ publish_skills "$COPILOT_SKILLS_DEST" "copilot/skills" copilot
 publish_skills "$PI_SKILLS_DEST" "pi/skills" pi
 publish_skills "$CODEX_SKILLS_DEST" "codex/skills" codex
 publish_pi_extensions
-install_pi_cursor_sdk_package
+remove_legacy_pi_cursor_sdk_package
 publish_pi_themes
 publish_pi_keybindings
 publish_rules "$CLAUDE_RULES_DEST" "claude/rules" claude

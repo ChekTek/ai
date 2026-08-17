@@ -49,9 +49,7 @@ else {
 }
 $CodexSkillsDest = Join-Path $CodexRoot 'skills'
 $CodexRulesDest = Join-Path $CodexRoot 'AGENTS.md'
-# npm has only published through 0.2.0; v0.3.3 is the GitHub tag this setup pins.
-$PiCursorSdkPackage = 'git:github.com/fitchmultz/pi-cursor-sdk@v0.3.3'
-$PiCursorSdkInstall = Join-Path $HOME '.pi\agent\git\github.com\fitchmultz\pi-cursor-sdk'
+$LegacyPiCursorSdkPackage = 'git:github.com/fitchmultz/pi-cursor-sdk'
 
 function Get-TargetMetadata {
     param([string] $Path)
@@ -360,19 +358,36 @@ function Publish-Skills {
     }
 }
 
+function Test-PiExtensionPrepareScript {
+    param([string] $PackagePath)
+
+    try {
+        $pkg = Get-Content -LiteralPath $PackagePath -Raw | ConvertFrom-Json
+        return [bool]$pkg.scripts.prepare
+    }
+    catch {
+        return $false
+    }
+}
+
 function Install-PiExtensionDependencies {
     param([System.IO.DirectoryInfo] $Extension)
 
     $packagePath = Join-Path $Extension.FullName 'package.json'
     if (-not (Test-Path -LiteralPath $packagePath -PathType Leaf)) { return }
 
+    $runPrepare = Test-PiExtensionPrepareScript $packagePath
     $pnpmLockPath = Join-Path $Extension.FullName 'pnpm-lock.yaml'
     if (Test-Path -LiteralPath $pnpmLockPath -PathType Leaf) {
         if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
             throw "cannot install dependencies for $($Extension.FullName): pnpm is not on PATH"
         }
 
-        & pnpm install --dir "$($Extension.FullName)" --prod --frozen-lockfile --ignore-scripts
+        $pnpmArgs = @('install', '--dir', $Extension.FullName, '--prod', '--frozen-lockfile')
+        if (-not $runPrepare) {
+            $pnpmArgs += '--ignore-scripts'
+        }
+        & pnpm @pnpmArgs
         if ($LASTEXITCODE -ne 0) {
             throw "failed to install dependencies for $($Extension.FullName)"
         }
@@ -384,7 +399,11 @@ function Install-PiExtensionDependencies {
         throw "cannot install dependencies for $($Extension.FullName): npm is not on PATH"
     }
 
-    & npm install --prefix "$($Extension.FullName)" --omit=dev --ignore-scripts --no-audit --no-fund
+    $npmArgs = @('install', '--prefix', $Extension.FullName, '--omit=dev', '--no-audit', '--no-fund')
+    if (-not $runPrepare) {
+        $npmArgs += '--ignore-scripts'
+    }
+    & npm @npmArgs
     if ($LASTEXITCODE -ne 0) {
         throw "failed to install dependencies for $($Extension.FullName)"
     }
@@ -472,25 +491,24 @@ function Publish-PiExtensions {
     }
 }
 
-function Install-PiCursorSdkPackage {
+function Remove-LegacyPiCursorSdkPackage {
+    $settingsPath = Join-Path $HOME '.pi\agent\settings.json'
+    if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) { return }
+
+    $settingsText = Get-Content -LiteralPath $settingsPath -Raw
+    if ($settingsText -notlike "*${LegacyPiCursorSdkPackage}*") { return }
+
     if (-not (Get-Command pi -ErrorAction SilentlyContinue)) {
-        Write-Host "skip ${PiCursorSdkPackage}: pi is not on PATH"
+        Write-Host "skip removing ${LegacyPiCursorSdkPackage}: pi is not on PATH"
+        Write-Host "remove that package from $settingsPath before starting Pi so Cursor does not load twice"
         return
     }
 
-    $settingsPath = Join-Path $HOME '.pi\agent\settings.json'
-    if ((Test-Path -LiteralPath $PiCursorSdkInstall) -and (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
-        $settingsText = Get-Content -LiteralPath $settingsPath -Raw
-        if ($settingsText -like "*${PiCursorSdkPackage}*") {
-            Write-Host "already installed: $PiCursorSdkPackage"
-            return
-        }
-    }
-
-    & pi install $PiCursorSdkPackage
+    & pi remove $LegacyPiCursorSdkPackage
     if ($LASTEXITCODE -ne 0) {
-        throw "failed to install $PiCursorSdkPackage"
+        throw "failed to remove $LegacyPiCursorSdkPackage"
     }
+    Write-Host "removed package: $LegacyPiCursorSdkPackage"
 }
 
 function Get-RelativePath {
@@ -800,7 +818,7 @@ Publish-Skills $CopilotSkillsDest 'copilot/skills' 'copilot'
 Publish-Skills $PiSkillsDest 'pi/skills' 'pi'
 Publish-Skills $CodexSkillsDest 'codex/skills' 'codex'
 Publish-PiExtensions
-Install-PiCursorSdkPackage
+Remove-LegacyPiCursorSdkPackage
 Publish-PiThemes
 Publish-PiKeybindings
 Publish-Rules $ClaudeRulesDest 'claude/rules' 'claude'
