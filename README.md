@@ -22,7 +22,7 @@ skills/
 pi/
 ├── keybindings.json
 ├── extensions/
-│   ├── ask-user.ts
+│   ├── btw.ts
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
 │   ├── personas.ts
@@ -435,6 +435,22 @@ pnpm run build   # typecheck (server and browser) plus lint
 ```
 
 Design notes and reference mockups are in `pi/extensions/pi-flow/docs/`.
+
+### Pi BTW
+
+`pi/extensions/btw.ts` adds `/btw`, a popup overlay on the current conversation.
+It runs immediately even while the main agent is still working. The overlay has
+its own in-memory Pi session (read/bash/edit/write) and does not inherit the
+main transcript, persist a hidden thread, or inject back into the original chat.
+
+```text
+/btw                 open the overlay
+/btw look at auth    open the overlay and ask that first
+```
+
+Enter submits, Escape dismisses, PgUp/PgDn (or the wheel) scrolls. Dismissing
+keeps the side session for the rest of this Pi process, so `/btw` again continues
+it. Reload Pi after publishing (`/reload` or restart).
 
 ### Pi Themes
 
