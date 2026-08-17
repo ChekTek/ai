@@ -105,7 +105,7 @@ function isSkippableCompactionError(error: Error): boolean {
  * that miss again on later requests.
  */
 async function offerCompactionAfterPersonaChange(
-	ctx: ExtensionCommandContext,
+	ctx: ExtensionContext & { waitForIdle?: () => Promise<void> },
 	previous: Persona,
 	next: Persona,
 ): Promise<void> {
@@ -117,7 +117,7 @@ async function offerCompactionAfterPersonaChange(
 	);
 	if (!confirmed) return;
 
-	await ctx.waitForIdle();
+	await ctx.waitForIdle?.();
 	ctx.compact({
 		customInstructions:
 			`The user switched from the ${previous} persona to the ${next} persona. Summarize the prior conversation so work can continue under the new identity.`,
@@ -221,8 +221,11 @@ export default function personasExtension(pi: ExtensionAPI): void {
 
 	pi.registerShortcut(Key.ctrl("n"), {
 		description: "Cycle session persona",
-		handler: (ctx) => {
-			selectPersona(nextPersona(persona), ctx);
+		handler: async (ctx) => {
+			const previous = persona;
+			const next = nextPersona(persona);
+			selectPersona(next, ctx);
+			await offerCompactionAfterPersonaChange(ctx, previous, next);
 		},
 	});
 
