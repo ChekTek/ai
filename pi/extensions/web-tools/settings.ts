@@ -46,7 +46,7 @@ const DEFAULTS = {
 	fetchMaxResponseBytes: FETCH_MAX_RESPONSE_BYTES,
 	fetchBlockPrivateHosts: true,
 	fetchMaxRedirects: FETCH_MAX_REDIRECTS,
-	fetchFallbackUserAgent: "opencode",
+	fetchFallbackUserAgent: "pi-web-tools",
 	searchProvider: "exa",
 	searchTimeoutSeconds: SEARCH_TIMEOUT_SECONDS.default,
 	searchDefaultMaxResults: SEARCH_MAX_RESULTS.default,
