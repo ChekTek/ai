@@ -7,7 +7,7 @@ import {
 	type ExtensionCommandContext,
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
+import { Container, Key, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
 
 /** Slash command that restores Pi documentation for the rest of the session. */
 const BUILD_FOR_PI_COMMAND = "/skill:build-for-pi";
@@ -20,28 +20,31 @@ const BUILD_FOR_PI_COMMAND = "/skill:build-for-pi";
 const PI_DOCS_BLOCK =
 	/\n\nPi documentation \(read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI\):[\s\S]*?Always read pi \.md files completely and follow links to related docs \(e\.g\., tui\.md for TUI API details\)/;
 
-/** Session-only personas and the identity sentence each injects. */
+/** Session-only personas and the first identity sentence each injects. */
 const PERSONAS = {
 	developer: {
 		description: "Pi's default coding-assistant identity",
-		/** Default identity sentence from Pi's built-in system prompt. */
-		identity:
-			"You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+		/** Default first identity sentence from Pi's built-in system prompt. */
+		identity: "You are an expert coding assistant operating inside pi, a coding agent harness.",
 	},
 	designer: {
 		description: "Layouts, visual systems, copy, and design specifications",
-		identity:
-			"You are an expert designer operating inside pi, a coding agent harness. You help users by reading files, executing commands, and producing design work such as layouts, visual systems, copy, and specifications.",
+		identity: "You are an expert designer operating inside pi, a coding agent harness.",
 	},
 	general: {
 		description: "Helpful assistant for research and general work",
-		identity:
-			"You are a helpful assistant operating inside pi, a coding agent harness. You help users by researching, reading files, executing commands, editing files, and writing new files.",
+		identity: "You are a helpful assistant operating inside pi, a coding agent harness.",
 	},
 } as const;
 
 /** Persona names accepted by `/persona`. */
 const PERSONA_NAMES = Object.keys(PERSONAS) as Persona[];
+
+/** Returns the next persona in cycle order. */
+function nextPersona(current: Persona): Persona {
+	const index = PERSONA_NAMES.indexOf(current);
+	return PERSONA_NAMES[(index + 1) % PERSONA_NAMES.length] ?? current;
+}
 
 /** Returns whether a command argument is a known persona. */
 function isPersona(value: string): value is Persona {
@@ -62,8 +65,10 @@ function formatPiDocumentation(): string {
 
 /**
  * Applies the active persona and optional restored Pi docs to Pi's default
- * system prompt. Custom `--system-prompt` / `SYSTEM.md` text is returned
- * unchanged unless it contains the default identity sentence.
+ * system prompt. Only the first identity sentence is swapped so plan/chat
+ * modes can rewrite the following "You help users by …" line. Custom
+ * `--system-prompt` / `SYSTEM.md` text is returned unchanged unless it
+ * contains the default first identity sentence.
  */
 function applyPersonaPrompt(systemPrompt: string, persona: Persona, restorePiDocs: boolean): string {
 	if (!systemPrompt.includes(PERSONAS.developer.identity)) {
@@ -214,6 +219,13 @@ export default function personasExtension(pi: ExtensionAPI): void {
 		},
 	});
 
+	pi.registerShortcut(Key.ctrl("n"), {
+		description: "Cycle session persona",
+		handler: (ctx) => {
+			selectPersona(nextPersona(persona), ctx);
+		},
+	});
+
 	pi.on("session_start", (_event, ctx) => {
 		persona = "developer";
 		restorePiDocs = false;
@@ -232,5 +244,5 @@ export default function personasExtension(pi: ExtensionAPI): void {
 	});
 }
 
-/** Named session identity that rewrites Pi's default coding-assistant sentence. */
+/** Named session identity that rewrites Pi's default first identity sentence. */
 type Persona = keyof typeof PERSONAS;

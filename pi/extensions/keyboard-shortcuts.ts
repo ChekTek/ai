@@ -1,20 +1,25 @@
 import { sep } from "node:path";
 
 import type { Usage } from "@earendil-works/pi-ai";
-import { keyHint, keyText, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { keyHint, keyText, rawKeyHint, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
-/** Keyboard shortcuts shown below pi's usage, model, and effort footer line. */
-const SHORTCUTS = [
-	["app.interrupt", "interrupt"],
+/** Built-in keybinding ids shown below pi's usage, model, and effort footer line. */
+const BINDING_SHORTCUTS = [
 	["app.model.select", "models"],
+	["app.model.cycleForward", "cycle"],
 	["app.thinking.cycle", "effort"],
-	["app.message.copy", "copy"],
-	["app.editor.external", "editor"],
 ] as const;
 
-/** Status key set by `personas.ts`; shown on the cwd line above the model. */
-const PERSONA_STATUS_KEY = "persona";
+/** Extension shortcuts registered in `personas.ts` and `modes.ts`. */
+const RAW_SHORTCUTS = [
+	["ctrl+n", "persona"],
+	["ctrl+q", "mode"],
+] as const;
+
+/** Status keys shown on the cwd line above the model (`modes.ts`, `personas.ts`). */
+const CWD_STATUS_KEYS = ["mode", "persona"] as const;
+const CWD_STATUS_KEY_SET = new Set<string>(CWD_STATUS_KEYS);
 
 /** Formats a token count for the compact footer. */
 function formatTokens(count: number): string {
@@ -119,26 +124,31 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 					const usageLine = truncateToWidth(`${statsText}${padding}${visibleModel}`, width, "");
 
 					const statuses = footerData.getExtensionStatuses();
-					const persona = statuses.get(PERSONA_STATUS_KEY);
+					const cwdStatus = CWD_STATUS_KEYS.map((key) => statuses.get(key))
+						.filter((status): status is string => Boolean(status))
+						.join("  ");
 					const cwdText = theme.fg("dim", workingDirectory);
 					let cwdLine = truncateToWidth(cwdText, width, theme.fg("dim", "..."));
-					if (persona) {
-						const availableCwdWidth = Math.max(0, width - visibleWidth(persona) - 2);
+					if (cwdStatus) {
+						const availableCwdWidth = Math.max(0, width - visibleWidth(cwdStatus) - 2);
 						const visibleCwd = truncateToWidth(cwdText, availableCwdWidth, theme.fg("dim", "..."));
 						const cwdPadding = " ".repeat(
-							Math.max(1, width - visibleWidth(visibleCwd) - visibleWidth(persona)),
+							Math.max(1, width - visibleWidth(visibleCwd) - visibleWidth(cwdStatus)),
 						);
-						cwdLine = truncateToWidth(`${visibleCwd}${cwdPadding}${persona}`, width, "");
+						cwdLine = truncateToWidth(`${visibleCwd}${cwdPadding}${cwdStatus}`, width, "");
 					}
 
 					const statusLines = [...statuses]
-						.filter(([key]) => key !== PERSONA_STATUS_KEY)
+						.filter(([key]) => !CWD_STATUS_KEY_SET.has(key))
 						.map(([, status]) => truncateToWidth(status, width, theme.fg("dim", "...")));
 					const separator = theme.fg("borderMuted", "─".repeat(Math.max(0, width)));
 					const hintSeparator = theme.fg("dim", " · ");
-					const hints = SHORTCUTS.flatMap(([keybinding, description]) =>
-						keyText(keybinding) ? [keyHint(keybinding, description)] : [],
-					);
+					const hints = [
+						...BINDING_SHORTCUTS.flatMap(([keybinding, description]) =>
+							keyText(keybinding) ? [keyHint(keybinding, description)] : [],
+						),
+						...RAW_SHORTCUTS.map(([key, description]) => rawKeyHint(key, description)),
+					];
 
 					return [
 						cwdLine,
