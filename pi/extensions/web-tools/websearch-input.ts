@@ -27,7 +27,7 @@ export interface WebSearchToolInput {
 	readonly timeoutSeconds: number;
 }
 
-/** Parse raw Pi websearch params into service-facing input. */
+/** Parse raw Pi web_search params into service-facing input. */
 export function parseWebSearchToolParams(
 	raw: unknown,
 	settings: WebToolsSettings["search"],

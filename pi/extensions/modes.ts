@@ -39,7 +39,7 @@ function nextMode(current: AgentMode): AgentMode {
 const MUTATING_TOOLS = new Set(["edit", "write"]);
 
 /** Tools kept in chat mode; everything else from the build snapshot is dropped. */
-const CHAT_TOOLS = new Set(["read", "grep", "find", "ls", "webfetch", "websearch", "ask_user"]);
+const CHAT_TOOLS = new Set(["read", "grep", "find", "ls", "web_fetch", "web_search", "ask_user"]);
 
 /** Matches Pi's default "You help users by …" identity sentence. */
 const HELP_USERS_SENTENCE = /You help users by [^.]+?\./;

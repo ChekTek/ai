@@ -25,7 +25,7 @@ export interface WebFetchToolInput {
 	readonly timeoutSeconds: number;
 }
 
-/** Parse raw Pi webfetch params into service-facing input. */
+/** Parse raw Pi web_fetch params into service-facing input. */
 export function parseWebFetchToolParams(
 	raw: unknown,
 	settings: WebToolsSettings["fetch"],

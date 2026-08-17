@@ -117,7 +117,7 @@ export class FetchPage {
 	}
 }
 
-/** Return the Accept header value for a webfetch format. */
+/** Return the Accept header value for a web_fetch format. */
 export function getAcceptHeader(format: WebFetchFormat): string {
 	switch (format) {
 		case "markdown":
@@ -129,7 +129,7 @@ export function getAcceptHeader(format: WebFetchFormat): string {
 	}
 }
 
-/** Build legacy webfetch request headers for tests and UI-adjacent callers. */
+/** Build legacy web_fetch request headers for tests and UI-adjacent callers. */
 export function createWebFetchHeaders(accept: string, userAgent = WEBFETCH_DEFAULT_USER_AGENT): Record<string, string> {
 	return {
 		"User-Agent": userAgent,
@@ -144,7 +144,7 @@ export function getFallbackUserAgent(configuredUserAgent?: string): string {
 	return trimmed || WEBFETCH_FALLBACK_USER_AGENT;
 }
 
-/** Detect the Cloudflare challenge response that webfetch retries with a fallback user agent. */
+/** Detect the Cloudflare challenge response that web_fetch retries with a fallback user agent. */
 export function shouldRetryWithFallbackUserAgent(response: Pick<Response, "status" | "headers">): boolean {
 	return response.status === 403 && response.headers.get("cf-mitigated") === "challenge";
 }

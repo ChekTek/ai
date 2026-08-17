@@ -40,7 +40,7 @@ type WebFetchBoundaryError = ToolInputParseError | ParsePublicHttpUrlError | Fet
 
 export function createWebFetchTool(composition?: WebFetchToolComposition) {
 	return {
-		name: "webfetch",
+		name: "web_fetch",
 		label: "Web Fetch",
 		description: "Fetch a public URL as markdown, text, or an inline image.",
 		promptSnippet: "Fetch one public URL as markdown, text, or an inline image",
@@ -105,7 +105,7 @@ export function createWebFetchTool(composition?: WebFetchToolComposition) {
 		},
 
 		renderCall(args: { url: string; format?: WebFetchFormat }, theme: RenderTheme) {
-			let text = theme.fg("toolTitle", theme.bold("webfetch "));
+			let text = theme.fg("toolTitle", theme.bold("web_fetch "));
 			text += theme.fg("accent", redactUrlCredentialsForDisplay(args.url));
 			if (args.format && args.format !== "markdown") {
 				text += theme.fg("muted", ` (${args.format})`);
@@ -192,7 +192,7 @@ function renderSafeWebFetchError(error: WebFetchBoundaryError): string {
 		case "InvalidToolField":
 			return `${error.field}: ${error.message}`;
 		case "UnknownToolField":
-			return `Unknown webfetch field: ${error.field}`;
+			return `Unknown web_fetch field: ${error.field}`;
 		case "EmptyUrl":
 			return "URL cannot be empty";
 		case "UnsupportedUrlProtocol":
@@ -228,7 +228,7 @@ function renderSafeWebFetchError(error: WebFetchBoundaryError): string {
 		case "HtmlConversionFailed":
 			return "HTML conversion failed";
 		case "TempFileWriteFailed":
-			return "Failed to write full webfetch output";
+			return "Failed to write full web_fetch output";
 	}
 }
 

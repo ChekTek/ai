@@ -36,9 +36,9 @@ type WebSearchBoundaryError = ToolInputParseError | ParseSearchQueryError | Sear
 
 export function createWebSearchTool(composition?: WebSearchToolComposition) {
 	return {
-		name: "websearch",
+		name: "web_search",
 		label: "Web Search",
-		description: "Search the public web for current information and candidate URLs to inspect with webfetch.",
+		description: "Search the public web for current information and candidate URLs to inspect with web_fetch.",
 		promptSnippet: "Search the public web for current information and relevant URLs",
 		parameters: Type.Object({
 			query: Type.String({ description: "Search query." }),
@@ -105,7 +105,7 @@ export function createWebSearchTool(composition?: WebSearchToolComposition) {
 		},
 
 		renderCall(args: { query: string; depth?: SearchDepth; maxResults?: number }, theme: RenderTheme) {
-			let text = theme.fg("toolTitle", theme.bold("websearch "));
+			let text = theme.fg("toolTitle", theme.bold("web_search "));
 			text += theme.fg("accent", JSON.stringify(String(args.query)));
 			if (args.depth && args.depth !== "auto") {
 				text += theme.fg("muted", ` (${args.depth})`);
@@ -189,11 +189,11 @@ function renderSafeWebSearchError(error: WebSearchBoundaryError): string {
 		case "InvalidToolField":
 			return `${error.field}: ${error.message}`;
 		case "UnknownToolField":
-			return `Unknown websearch field: ${error.field}`;
+			return `Unknown web_search field: ${error.field}`;
 		case "EmptySearchQuery":
 			return "Search query cannot be empty";
 		case "SearchDisabled":
-			return "websearch is disabled in web-tools settings. Enable it to use this tool.";
+			return "web_search is disabled in web-tools settings. Enable it to use this tool.";
 		case "SearchProviderUnavailable":
 			return "Search provider unavailable";
 		case "SearchProviderStatusRejected":
@@ -209,7 +209,7 @@ function renderSafeWebSearchError(error: WebSearchBoundaryError): string {
 		case "SearchProviderCancelled":
 			return "Web search cancelled";
 		case "TempFileWriteFailed":
-			return "Failed to write full websearch output";
+			return "Failed to write full web_search output";
 	}
 }
 
