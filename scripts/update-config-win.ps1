@@ -200,6 +200,7 @@ function Test-OwnedLink {
     if (-not $item -or -not $item.LinkType) { return $false }
 
     $repoPrefix = $RepoRoot.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    $anyTargetExists = $false
     foreach ($rawTarget in @($item.Target)) {
         if (-not $rawTarget) { continue }
         if ([System.IO.Path]::IsPathRooted($rawTarget)) {
@@ -208,12 +209,17 @@ function Test-OwnedLink {
         else {
             $fullTarget = [System.IO.Path]::GetFullPath((Join-Path $item.DirectoryName $rawTarget))
         }
+        if (Test-Path -LiteralPath $fullTarget) {
+            $anyTargetExists = $true
+        }
         if ($fullTarget.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
             return $true
         }
     }
 
-    return $false
+    # Dangling links at managed destinations are leftover publishes (often an
+    # old worktree) and are safe to replace.
+    return -not $anyTargetExists
 }
 
 function Remove-LinkItem {

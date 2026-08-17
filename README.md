@@ -25,6 +25,7 @@ pi/
 │   ├── btw.ts
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
+│   ├── modes.ts
 │   ├── personas.ts
 │   ├── cursor-login.ts
 │   ├── cursor-login/
@@ -185,26 +186,57 @@ Select a row to see details.
 
 `pi/extensions/personas.ts` swaps only the default coding-assistant identity
 for the current session. Tools, guidelines, and project context stay as Pi
-built them. Custom `--system-prompt` / `SYSTEM.md` prompts are left alone
-when they do not contain Pi's default identity sentence.
+built them.
 
 ```text
 /persona              open the picker (TUI)
 /persona developer    coding assistant (session default)
 /persona designer     design work such as layouts, visual systems, copy, and specifications
 /persona general      helpful assistant for research and general work
+ctrl+n                cycle developer → designer → general
 ```
 
 The choice resets to `developer` on each new session. The footer shows
-`persona:<name>` on the right of the working-directory line, above the model.
-Changing persona mid-session asks whether to compact when the session already
-has chat messages, because the new identity already busts the prompt-cache
-prefix.
+`persona:<name>` on the right of the working-directory line, above the model,
+next to `mode:<name>`. Changing persona mid-session asks whether to compact
+when the session already has chat messages, because the new identity already
+busts the prompt-cache prefix.
+
+Personas swap only the first identity sentence so `/mode` can rewrite the
+following "You help users by …" line. Custom `--system-prompt` / `SYSTEM.md`
+prompts are left alone when they do not contain Pi's default first identity
+sentence.
 
 The extension also removes Pi's built-in self-documentation from that default
 prompt. Restore it for the rest of the session with `/skill:build-for-pi`.
 That skill defaults to `user only` (`disable-model-invocation: true`), so it
 is not in the model's initial context until you invoke it.
+
+### Pi Modes
+
+`pi/extensions/modes.ts` switches Build, Plan, and Chat for the current
+session. Build is Pi as usual. Plan drops `edit` and `write`, keeps read-only
+exploration (including bash, gated against destructive commands), and asks
+the model to write a markdown plan in the reply. Chat keeps read, search, web,
+and `ask_user`, and removes bash, edit, and write.
+
+```text
+/mode           open the picker (TUI)
+/mode build     usual coding agent (session default)
+/mode plan      read-only; write a markdown plan, do not implement
+/mode chat      read-only conversation; no edits or commands
+ctrl+q          cycle build → plan → chat
+```
+
+The choice resets to `build` on each new session. The footer shows
+`mode:<name>` on the right of the working-directory line, next to
+`persona:<name>`. Changing mode mid-session asks whether to compact when the
+session already has chat messages, because tools and the system prompt already
+bust the prompt-cache prefix.
+
+Plan and Chat append a short system-prompt block and rewrite the default
+"You help users by …" sentence when it is present. No extra model tools,
+plan files, or implement-handoff UI.
 
 ### Pi Cursor
 
@@ -461,12 +493,20 @@ Pi's `/settings`.
 ### Pi Keybindings
 
 `pi/keybindings.json` is linked to `~/.pi/agent/keybindings.json`. It unbinds
-`app.thinking.toggle` (`ctrl+t`), `app.tools.expand` (`ctrl+o`), model cycling
-(`ctrl+p` / `shift+ctrl+p`), and follow-up queueing (`alt+enter`) so thinking
-and tool output stay visible, model changes go through the selector
-(`ctrl+l`), and messages sent while the agent is working always steer. The
-footer shortcut list omits those actions as well, and tool output is expanded
-on session start. Run the update script, then `/reload` or restart Pi.
+`app.thinking.toggle` (`ctrl+t`), `app.tools.expand` (`ctrl+o`), reverse model
+cycling (`shift+ctrl+p`), follow-up queueing (`alt+enter`), last-message
+copy (`ctrl+x`), the external editor (`ctrl+g`), and the session-picker
+named filter (`ctrl+n`) so thinking and tool output stay visible, model
+changes go through the selector (`ctrl+l`) or `ctrl+p` to cycle forward, and
+messages sent while the agent is working always steer. Effort is rebound to
+`ctrl+e` (line-end stays on `end` / `ctrl+end`). Persona and mode use
+extension shortcuts on keys Pi does not reserve: `ctrl+n` cycles persona,
+`ctrl+q` cycles mode. Mode is not `ctrl+m` because terminals send that as
+Enter, and not `ctrl+p` / `ctrl+o` because Pi skips extension shortcuts that
+collide with reserved builtins. The footer shortcut list shows models,
+cycle, effort, persona, and mode. Tool output is expanded on session start.
+Run the update script, then `/reload` or restart Pi. The publish scripts
+replace dangling managed links, including leftover Cursor worktree publishes.
 
 [pi-web-tools]: https://github.com/dmmulroy/pi-web-tools
 
