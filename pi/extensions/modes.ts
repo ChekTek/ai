@@ -131,7 +131,7 @@ function isSkippableCompactionError(error: Error): boolean {
  * system prompt already bust the prompt-cache prefix.
  */
 async function offerCompactionAfterModeChange(
-	ctx: ExtensionCommandContext,
+	ctx: ExtensionContext & { waitForIdle?: () => Promise<void> },
 	previous: AgentMode,
 	next: AgentMode,
 ): Promise<void> {
@@ -143,7 +143,7 @@ async function offerCompactionAfterModeChange(
 	);
 	if (!confirmed) return;
 
-	await ctx.waitForIdle();
+	await ctx.waitForIdle?.();
 	ctx.compact({
 		customInstructions:
 			`The user switched from ${previous} mode to ${next} mode. Summarize the prior conversation so work can continue under the new mode.`,
@@ -271,8 +271,11 @@ export default function modesExtension(pi: ExtensionAPI): void {
 
 	pi.registerShortcut(Key.ctrl("q"), {
 		description: "Cycle session mode",
-		handler: (ctx) => {
-			selectMode(nextMode(mode), ctx);
+		handler: async (ctx) => {
+			const previous = mode;
+			const next = nextMode(mode);
+			selectMode(next, ctx);
+			await offerCompactionAfterModeChange(ctx, previous, next);
 		},
 	});
 
