@@ -1,10 +1,10 @@
 # AI Configuration
 
 User-level coding instructions and skills shared across **Claude Code**,
-**GitHub Copilot**, **Pi**, **OpenAI Codex**, and **OpenCode**, plus Pi extensions, themes, and keybindings.
+**GitHub Copilot**, **Pi**, and **OpenAI Codex**, plus Pi extensions, themes, and keybindings.
 
-The root `rules/`, `skills/`, `pi/extensions/`, `pi/themes/`, `pi/keybindings.json`,
-and `opencode/` folders are the source of truth. The update scripts validate and publish them in the native
+The root `rules/`, `skills/`, `pi/extensions/`, `pi/themes/`, and `pi/keybindings.json`
+folders are the source of truth. The update scripts validate and publish them in the native
 user/global format each harness expects.
 
 ## Source Layout
@@ -39,12 +39,6 @@ pi/
 │       └── web/
 └── themes/
     └── nord.json
-opencode/
-├── context-manager.ts
-├── context-report-tui.ts
-├── plugins/
-│   └── context-report.ts
-└── tui.jsonc
 ```
 
 Keep source files out of native folders such as `.claude` and `.agents`. Native
@@ -59,7 +53,7 @@ A skill or rule can restrict where it is published with `metadata.targets`:
 name: example-skill
 description: Explain what the skill does and when to use it.
 metadata:
-  targets: "claude,copilot,pi,codex,opencode"
+  targets: "claude,copilot,pi,codex"
 ---
 ```
 
@@ -81,9 +75,8 @@ Supported targets are exactly:
 - `copilot` — GitHub Copilot
 - `pi` — Pi, regardless of the model Pi launches
 - `codex` — OpenAI Codex
-- `opencode` — OpenCode
 
-If `metadata.targets` is absent, the file is published to all five harnesses.
+If `metadata.targets` is absent, the file is published to all four harnesses.
 Targets must be a quoted, comma-separated scalar. Empty, duplicate, malformed,
 or unknown targets—including `gpt`—cause the script to fail before publishing
 anything.
@@ -131,7 +124,6 @@ it.
 | GitHub Copilot | `~/.copilot/skills` | `~/.copilot/instructions/*.instructions.md` | — |
 | Pi | `~/.pi/agent/skills` | `~/.pi/agent/rules` | `~/.pi/agent/extensions`, `~/.pi/agent/themes`, `~/.pi/agent/keybindings.json`, plus `pi-cursor-sdk` in `~/.pi/agent/settings.json` packages |
 | OpenAI Codex | `$CODEX_HOME/skills`, or `~/.codex/skills` | `$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` | — |
-| OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/commands` | `${XDG_CONFIG_HOME:-~/.config}/opencode/rules` | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins`, plus TUI plugin config |
 
 Skills, Pi extensions, Pi themes, and Pi keybindings are linked directly to their
 canonical sources. Pi extensions, themes, and keybindings are Pi-specific and do
@@ -145,24 +137,6 @@ Codex does not use Claude's conditional rule-file format, so its targeted rules
 are combined into a generated global `AGENTS.md`. Rules without `paths` always
 apply; rules with `paths` retain those patterns and are labeled as conditional
 instructions.
-
-OpenCode rules are linked individually to its global `rules` directory. The
-context-manager plugin scans the current Git project and injects only enabled
-rules whose `paths` match at least one tracked or unignored file. Rules without
-`paths` always match. Use `/rules` to enable or disable individual rule files;
-selections persist in OpenCode's state directory. Skills with
-`disable-model-invocation: true` are converted into generated global commands
-so they are available through `/` completion. Other skills are linked to
-OpenCode's global `skills` directory. Restart OpenCode after publishing because
-it loads commands, rules, and plugins at startup.
-
-The OpenCode context report uses a server plugin to capture each session's
-latest effective system prompt and a TUI plugin to register `/context`. The
-command opens a searchable, read-only report covering estimated request size,
-OpenCode's latest usage measurement, system prompt, active conversation, tool
-definitions, visible skills, instruction files, and published rules. It runs
-locally without sending a model request. The first system-prompt report becomes
-available after the session has made a model request.
 
 Pi rules remain separate under `~/.pi/agent/rules`. The `context-manager.ts`
 extension scans the current Git project and adds only enabled rules whose
@@ -275,8 +249,8 @@ pi --model cursor/composer-2-5
 
 The scripts will not overwrite an unmanaged Codex `AGENTS.md`, because silently
 doing so would destroy user instructions. Pi leaves unmanaged `AGENTS.md` files
-alone. OpenCode and Pi remove only legacy generated global files created by
-older versions of this repository.
+alone. Pi removes only legacy generated global files created by older versions
+of this repository.
 
 Copilot CLI and VS Code both read `~/.copilot` directly, so Copilot content is
 published only once. VS Code also discovers Claude locations by default, which
@@ -532,16 +506,10 @@ not created by this repo:
 - `~/.pi/agent/keybindings.json` when managed by this repo
 - `~/.pi/agent/rules`
 - `$CODEX_HOME/skills`, or `~/.codex/skills`
-- `${XDG_CONFIG_HOME:-~/.config}/opencode/commands`
-- `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins`
-- `${XDG_CONFIG_HOME:-~/.config}/opencode/rules`
-- `${XDG_CONFIG_HOME:-~/.config}/opencode/context-manager.ts`
-- `${XDG_CONFIG_HOME:-~/.config}/opencode/context-report-tui.ts`
-- `${XDG_CONFIG_HOME:-~/.config}/opencode/tui.jsonc` when managed by this repo
 
 Codex's managed `$CODEX_HOME/skills/.system` directory is preserved. The legacy
-generated Pi and OpenCode `AGENTS.md` files and current generated Codex
-`AGENTS.md` are removed only when they contain this repo's generated marker.
+generated Pi `AGENTS.md` file and current generated Codex `AGENTS.md` are
+removed only when they contain this repo's generated marker.
 The script lists removals and asks for confirmation.
 Pass `--yes` (`-Yes` on Windows) to skip the prompt; this is required for a
 non-interactive clean.
