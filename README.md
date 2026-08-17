@@ -304,7 +304,7 @@ so the extension loads.
 ### Pi Web Tools
 
 The `pi/extensions/web-tools.ts` entry point plus the `pi/extensions/web-tools/`
-directory add the `webfetch` and `websearch` tools.
+directory add the `web_fetch` and `web_search` tools.
 
 Upstream ships its entry point as `index.ts`, which makes Pi load the folder as
 a directory extension. This copy renames it to `web-tools/extension.ts` and
@@ -313,7 +313,7 @@ re-exports it from `web-tools.ts` instead, because the `pi-acp` ACP adapter
 `readdirSync(extensionsDir).filter(f => f.endsWith(".ts") || f.endsWith(".js"))`
 and therefore never shows a directory extension. The re-export is the single
 registration; keeping both an `index.ts` and a wrapper makes Pi load the
-extension twice and fail with `Tool "webfetch" conflicts with ...`.
+extension twice and fail with `Tool "web_fetch" conflicts with ...`.
 
 The wrapper has to sit next to the directory rather than point straight at the
 entry point, because Pi resolves an extension's relative imports against the
@@ -324,7 +324,7 @@ The update scripts run `npm install` in the extension folder before linking it,
 so `node_modules/` is generated locally and ignored by Git while
 `package-lock.json` is tracked.
 
-`webfetch` works without configuration. `websearch` uses Exa's public MCP
+`web_fetch` works without configuration. `web_search` uses Exa's public MCP
 endpoint (`https://mcp.exa.ai/mcp`) by default. Override it with
 `PI_WEB_TOOLS_EXA_ENDPOINT` if you run a different Exa-compatible MCP server.
 If Exa rate-limits (HTTP 429), search falls back to DuckDuckGo's keyless HTML
