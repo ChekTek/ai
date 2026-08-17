@@ -1,34 +1,35 @@
 ---
 name: orchestrate
-description: "Delegate coding work to another model family (GPT, Claude, or Grok) through the Copilot CLI. Use when you want a cross-family worker instead of doing the work yourself."
+description: "Delegate coding work to another model family (GPT, Claude, or Grok) through a Pi child on GitHub Copilot. Use when you want a cross-family worker instead of doing the work yourself."
 argument-hint: "[gpt|claude|grok] [task or goal]"
 disable-model-invocation: true
 ---
 
 # Orchestrate
 
-Delegate to a Copilot CLI worker in a **different** model family, then verify the result yourself. You own the outcome. Do not delegate the review.
+Delegate to a Pi worker on GitHub Copilot in a **different** model family, then verify the result yourself. You own the outcome. Do not delegate the review.
 
 If no family is given, pick one you are not.
 
 ## Models
 
-- **gpt** — complex: `gpt-5.6-sol --effort high --mode autopilot --max-autopilot-continues 15`. Everyday: `gpt-5.6-terra --effort medium --mode autopilot`. Light: `gpt-5.6-luna --effort low`.
-- **claude** — complex: `claude-opus-5 --effort high --mode autopilot --max-autopilot-continues 15`. Everyday: `claude-sonnet-5 --effort medium --mode autopilot`. Light: `claude-sonnet-5 --effort low`.
-- **grok** — `grok-4.6` at `--effort high --mode autopilot --max-autopilot-continues 15` (complex), `--effort medium --mode autopilot` (everyday), or `--effort low` (light).
+`--provider github-copilot`. `--thinking` is `high` / `medium` / `low`.
 
-Add-ons: `--context long_context` (large repo/diff), `--enable-all-github-mcp-tools` (issues, PRs, checks), `--allow-all-mcp-server-instructions`.
+- **gpt** — complex: `gpt-5.6-sol` `--thinking high`. Everyday: `gpt-5.6-terra` `--thinking medium`. Light: `gpt-5.6-luna` `--thinking low`.
+- **claude** — complex: `claude-opus-5` `--thinking high`. Everyday: `claude-sonnet-5` `--thinking medium`. Light: `claude-sonnet-5` `--thinking low`.
+- **grok** — `grok-4.6` at `--thinking high` (complex), `medium` (everyday), or `low` (light).
 
 ## Steps
 
 1. `git status --short` so unrelated changes are visible later.
 2. Ask the user clarifying questions. Split into sub-tasks and orchestrate each separately.
-3. Pick model/effort from the list above.
+3. Pick model/thinking from the list above.
 4. Prompt: objective, relevant files, what "done" means. Do not commit, push, or open a PR unless the user asked.
 5. Run:
    ```
-   copilot -C <repo> --model=<model> <model-flags> --prompt <prompt> \
-     --allow-all-tools --no-ask-user --stream=off --silent
+   pi -p --no-session --no-extensions --no-skills --no-prompt-templates -a \
+     --provider github-copilot --model <id> --thinking <level> \
+     "Task: <prompt>"
    ```
 6. Review the diff and run tests/build yourself.
 7. If it fell short: one focused follow-up to the same model. If that fails, fix it yourself.
