@@ -23,6 +23,7 @@ pi/
 ├── keybindings.json
 ├── extensions/
 │   ├── btw.ts
+│   ├── clear-startup.ts
 │   ├── context-manager.ts
 │   ├── keyboard-shortcuts.ts
 │   ├── modes.ts
@@ -270,6 +271,14 @@ Code when using this setup:
 
 Set `COPILOT_CLI_INSTRUCTIONS_DIR` to override Copilot's instruction folder.
 Set `CODEX_HOME` to override the Codex configuration folder.
+
+### Pi Startup Clear
+
+`pi/extensions/clear-startup.ts` clears leftover terminal output when an
+interactive Pi session starts, so the startup header prints on a blank screen.
+It runs during extension load, which is before the TUI's first render. Print,
+RPC, JSON, `--help`, and `--list-models` invocations are left alone. `/reload`
+does not clear again. Restart Pi after publishing.
 
 ### Pi Ask User
 
