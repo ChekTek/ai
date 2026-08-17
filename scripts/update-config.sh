@@ -230,6 +230,9 @@ validate_sources() {
 is_owned_link() {
   target="$1"
   [ -L "$target" ] || return 1
+  # Dangling links at managed destinations are leftover publishes (often an
+  # old worktree) and are safe to replace.
+  [ -e "$target" ] || return 0
   link_target="$(readlink "$target")"
   case "$link_target" in
     "$REPO_ROOT"/*) return 0 ;;
