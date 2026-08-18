@@ -1,37 +1,48 @@
 ---
 name: orchestrate
-description: "Delegate coding work to another model family (GPT, Claude, or Grok) through a Pi child on GitHub Copilot. Use when you want a cross-family worker instead of doing the work yourself."
-argument-hint: "[gpt|claude|grok] [task or goal]"
+description: "Delegate coding work to one Pi child on GitHub Copilot in a different model family. Use when you want a cross-family worker; route Claude parents to GPT, GPT parents to Claude, and Grok parents to GPT."
+argument-hint: "[task or goal]"
 disable-model-invocation: true
 ---
 
 # Orchestrate
 
-Delegate to a Pi worker on GitHub Copilot in a **different** model family, then verify the result yourself. You own the outcome. Do not delegate the review.
+Delegate to exactly one cross-family Pi worker, then verify its work yourself.
+You own the outcome and do not delegate the final review.
 
-If no family is given, pick one you are not.
+## Routing
 
-## Models
+Choose the worker from the parent model's family. Never use the same family as
+the parent.
 
-`--provider github-copilot`. `--thinking` is `high` / `medium` / `low`.
+- Claude parent → GPT worker
+- GPT parent → Claude worker
+- Grok parent → GPT worker
+- Any other parent family → GPT worker
 
-- **gpt** — complex: `gpt-5.6-sol` `--thinking high`. Everyday: `gpt-5.6-terra` `--thinking medium`. Light: `gpt-5.6-luna` `--thinking low`.
-- **claude** — complex: `claude-opus-5` `--thinking high`. Everyday: `claude-sonnet-5` `--thinking medium`. Light: `claude-sonnet-5` `--thinking low`.
-- **grok** — `grok-4.6` at `--thinking high` (complex), `medium` (everyday), or `low` (light).
+Use `--provider github-copilot`. Match the model and thinking level to the task:
+
+- GPT: complex `gpt-5.6-sol` high; everyday `gpt-5.6-terra` medium; light
+  `gpt-5.6-luna` low.
+- Claude: complex `claude-opus-5` high; everyday `claude-sonnet-5` medium;
+  light `claude-sonnet-5` low.
 
 ## Steps
 
-1. `git status --short` so unrelated changes are visible later.
-2. Ask the user clarifying questions. Split into sub-tasks and orchestrate each separately.
-3. Pick model/thinking from the list above.
-4. Prompt: objective, relevant files, what "done" means. Do not commit, push, or open a PR unless the user asked.
-5. Run:
-   ```
+1. Run `git status --short` to record unrelated changes.
+2. Clarify the task if needed and give the worker a self-contained objective,
+   relevant files, and completion criteria. Forbid commits, pushes, and PRs
+   unless the user requested them.
+3. Run:
+
+   ```bash
    pi -p --no-session --no-extensions --no-skills --no-prompt-templates -a \
      --provider github-copilot --model <id> --thinking <level> \
      "Task: <prompt>"
    ```
-6. Review the diff and run tests/build yourself.
-7. If it fell short: one focused follow-up to the same model. If that fails, fix it yourself.
+
+4. Code review the diff and run the relevant tests or build yourself. Test manually if you can.
+5. If needed, give the same worker up to three focused follow-ups, then finish the work
+   yourself.
 
 Report what changed and what you verified.

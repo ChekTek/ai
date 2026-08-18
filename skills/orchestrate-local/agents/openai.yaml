@@ -1,0 +1,7 @@
+interface:
+  display_name: "Orchestrate Local"
+  short_description: "Delegate work to the local Qwen model"
+  default_prompt: "Use $orchestrate-local to delegate this task to the local Qwen worker."
+
+policy:
+  allow_implicit_invocation: false
