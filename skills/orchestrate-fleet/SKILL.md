@@ -1,44 +1,61 @@
 ---
 name: orchestrate-fleet
-description: "Split work across multiple isolated Pi children on GitHub Copilot. Use only when the user invokes this skill; always fan out to at least two children instead of doing the work yourself."
+description: "Split work across multiple isolated Pi children on GitHub Copilot, always in a different model family from the parent. Use only when the user invokes this skill; fan out to at least two children."
 argument-hint: "[task or goal]"
 disable-model-invocation: true
 ---
 
 # Orchestrate Fleet
 
-You are the parent. Split the work into **at least two** parallel `pi` children. Do not implement the task yourself. Children never spawn children. You synthesize and verify.
+Split the work across at least two parallel Pi children. Do not implement it
+yourself. Children never spawn children; you synthesize and verify their work.
 
-If no family is given, pick one you are not.
+## Routing
+
+Every child must use the family selected from the parent model. Never use the
+parent's family.
+
+- Claude parent → GPT children
+- GPT parent → Claude children
+- Grok parent → GPT children
+- Any other parent family → GPT children
+
+Use GitHub Copilot and the same model tiers as `orchestrate`: GPT
+`gpt-5.6-sol|terra|luna`; Claude `claude-opus-5` or `claude-sonnet-5`.
+Thinking levels are `high`, `medium`, and `low`; use the everyday model at
+medium unless a task clearly needs another tier.
 
 ## Roles
 
-Append as `--append-system-prompt`. Tools: scout/reviewer/oracle `read,grep,find,ls`; worker adds `bash,write,edit`.
+Pass the role as `--append-system-prompt`. Scouts, reviewers, and oracles use
+`read,grep,find,ls`; workers add `bash,write,edit`.
 
-- **scout** — recon; compressed findings another agent can use; no edits
-- **worker** — implement only the assigned slice
-- **reviewer** — read-only review of one angle; `file:line` findings
-- **oracle** — challenge the plan; no edits
+- scout: investigate and return compressed findings; do not edit
+- worker: implement only its assigned slice
+- reviewer: review one angle and report `file:line` findings; do not edit
+- oracle: challenge the plan; do not edit
 
-Default loop: scouts in parallel → workers if implementing → fresh reviewers in parallel (correctness, tests, simplicity) → one fix worker if needed. Parallel workers only on disjoint files.
-
-## Models
-
-`--provider github-copilot`. Same IDs as `orchestrate`: gpt `gpt-5.6-sol|terra|luna`; claude `claude-opus-5` / `claude-sonnet-5`; grok `grok-4.6`. Thinking `high` / `medium` / `low`. Everyday: gpt `gpt-5.6-terra`; claude `claude-sonnet-5`; grok `grok-4.6`; all `--thinking medium`.
+Default to parallel scouts, disjoint workers when implementation is needed,
+then fresh reviewers. Use one fix worker if review finds problems.
 
 ## Steps
 
-1. `git status --short` so unrelated changes are visible later.
-2. Split into ≥2 child tasks. Cap 8 per wave, 4 concurrent (parallel bash calls).
-3. Prompt each child: objective, relevant files, what "done" means. Do not commit, push, or open a PR unless the user asked.
+1. Run `git status --short` to record unrelated changes.
+2. Split the task into at least two child assignments. Run at most four children
+   concurrently and eight per wave.
+3. Give each child a self-contained objective, relevant files, and completion
+   criteria. Forbid commits, pushes, and PRs unless the user requested them.
 4. Run each child:
-   ```
+
+   ```bash
    pi -p --no-session --no-extensions --no-skills --no-prompt-templates -a \
      --provider github-copilot --model <id> --thinking <level> \
      --tools <role-tools> --append-system-prompt "<role line>" \
      "Task: <prompt>"
    ```
-5. Review the combined diff and run tests/build yourself.
-6. If it fell short: one follow-up wave. If that still falls short, report the remaining blockers; do not implement them yourself.
+
+5. Review the combined diff and run the relevant tests or build yourself.
+6. Use up to three follow-up waves. Report unresolved blockers instead of
+   implementing them yourself.
 
 Report what changed, what you verified, and any remaining blockers.
