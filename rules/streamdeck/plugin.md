@@ -1,16 +1,14 @@
 ---
-description: 'Use when working on Stream Deck plugin source, config, or manifest.'
+description: "Use when working on Stream Deck plugin source, config, or manifest."
 paths:
-    - '{plugin*,*plugin}/**'
-    - '**/*.sdPlugin/manifest.json'
+  - "{plugin*,*plugin}/**"
+  - "**/*.sdPlugin/manifest.json"
 ---
 
 # Stream Deck Plugin Instructions
 
 ## Config
 
-- Root ESLint uses `@elgato/eslint-config` with `config.strict`.
-- `@elgato/prettier-config` is a dev dependency, set in `package.json`.
 - Copy native dependency files into `*.sdPlugin` so they ship in the package.
 
 ## Plugin
@@ -24,10 +22,12 @@ paths:
 
 ## Actions and state
 
-- Exactly 2 visual states: declare them in `manifest.json` and use `setState`, not `setImage`.
+- If there are two 2 visual states: declare them in `manifest.json` and use `setState`, not `setImage`.
 - UUID changes: update `manifest.json` and every source reference.
 - UUID or settings-structure changes: ask if the plugin is in production; migrate legacy settings if so.
 - Logic used by one action: private methods on that action class.
+- SingletonActions have all visible actions available in `this.actions`.
+- Actions should initialize in `onWillAppear` and clean up in `onWillDisappear`.
 
 ## Settings
 
@@ -39,31 +39,11 @@ paths:
 - API/connection logic: `*-service.ts` exported as `export default new FooService();`. Import it; never pass it into an action.
 - Shared state only if needed: `plugin-store.ts` exported as `export default new PluginStore();`. Import it; never pass it into an action.
 
-## willAppear
-
-If `willAppear` depends on an async value that may not be ready, use `withResolvers` from `@elgato/utils`:
-
-```ts
-private apiKeyResolvers = withResolvers<string | undefined>();
-
-public get apiKey(): Promise<string | undefined> {
-  return this.apiKeyResolvers.promise;
-}
-
-public setApiKey(apiKey?: string): void {
-  this.apiKeyResolvers.resolve(apiKey);
-}
-```
-
 ## Icons
 
+- Stream Deck uses SVG Tiny 1.2 specification, not full SVG.
 - Match existing SVG style, colors, and pieces. Key and action icons stay consistent. Action list icons are white.
 
 ## Native addons
 
 - Prefer a Node NAPI addon (Rust, else C++) over a separate process.
-
-## Libraries
-
-- Event emitter: `@elgato/utils`
-- Image manipulation: `@resvg/resvg-js`
