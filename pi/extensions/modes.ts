@@ -7,10 +7,16 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Key, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
 
+/** Pi's default capability sentence, restored whenever Build is selected. */
+const BUILD_HELP_USERS = "You help users by reading files, executing commands, editing code, and writing new files.";
+
 /** Session-only agent modes and the footer/prompt copy each uses. */
 const MODES = {
 	build: {
 		description: "Usual coding agent: read, bash, edit, and write",
+		helpUsers: BUILD_HELP_USERS,
+		prompt:
+			"You are in build mode. Earlier plan or chat mode restrictions no longer apply. Use the available tools to implement the user's request; edit and write are allowed when those tools are available.",
 	},
 	plan: {
 		description: "Read-only exploration; write a markdown plan, do not implement",
@@ -41,8 +47,11 @@ const MUTATING_TOOLS = new Set(["edit", "write"]);
 /** Tools kept in chat mode; everything else from the build snapshot is dropped. */
 const CHAT_TOOLS = new Set(["read", "grep", "find", "ls", "web_fetch", "web_search", "ask_user"]);
 
-/** Matches Pi's default "You help users by …" identity sentence. */
-const HELP_USERS_SENTENCE = /You help users by [^.]+?\./;
+/** Prompt blocks owned by this extension and removed before applying a mode. */
+const MODE_PROMPT_BLOCKS = MODE_NAMES.map((name) => MODES[name].prompt);
+
+/** Capability sentences this extension may have injected on an earlier turn. */
+const MODE_HELP_USERS_SENTENCES = MODE_NAMES.map((name) => MODES[name].helpUsers);
 
 /**
  * Bash forms that mutate the workspace. Plan mode blocks these and otherwise
@@ -79,18 +88,35 @@ function isDestructiveCommand(command: string): boolean {
 	return DESTRUCTIVE_BASH.some((pattern) => pattern.test(command));
 }
 
+/** Returns the first managed capability sentence in prompt order. */
+function findModeHelpUsers(systemPrompt: string): string | undefined {
+	let firstSentence: string | undefined;
+	let firstIndex = systemPrompt.length;
+	for (const sentence of MODE_HELP_USERS_SENTENCES) {
+		const index = systemPrompt.indexOf(sentence);
+		if (index < 0 || index >= firstIndex) continue;
+		firstSentence = sentence;
+		firstIndex = index;
+	}
+	return firstSentence;
+}
+
 /**
- * Applies plan/chat prompt tweaks. Custom `--system-prompt` / `SYSTEM.md` text
- * still gets the short appended block; the help-users rewrite only runs when
- * that default sentence is present.
+ * Replaces the previous mode's prompt changes with the selected mode. Custom
+ * `--system-prompt` / `SYSTEM.md` text still gets an explicit mode block.
+ * Build restores Pi's capability sentence and explicitly retires earlier
+ * read-only restrictions. This makes mode changes unambiguous without reload.
  */
 function applyModePrompt(systemPrompt: string, mode: AgentMode): string {
-	if (mode === "build") return systemPrompt;
-
 	const { helpUsers, prompt: block } = MODES[mode];
 	let prompt = systemPrompt;
-	if (HELP_USERS_SENTENCE.test(prompt)) {
-		prompt = prompt.replace(HELP_USERS_SENTENCE, helpUsers);
+	for (const previousBlock of MODE_PROMPT_BLOCKS) {
+		prompt = prompt.replaceAll(`\n\n${previousBlock}`, "");
+	}
+
+	const previousHelpUsers = findModeHelpUsers(prompt);
+	if (previousHelpUsers) {
+		prompt = prompt.replace(previousHelpUsers, helpUsers);
 	}
 
 	if (block && !prompt.includes(block)) {
@@ -202,9 +228,11 @@ async function showModePicker(ctx: ExtensionCommandContext, mode: AgentMode): Pr
 	return result;
 }
 
-/** Switches Build, Plan, and Chat for this session by swapping tools and a short prompt. */
+/** Switches session tools/prompts and announces each active mode once in outbound context. */
 export default function modesExtension(pi: ExtensionAPI): void {
 	let mode: AgentMode = "build";
+	let modeRevision = 0;
+	let announcedModeRevision = -1;
 	let toolsBeforeMode: string[] | undefined;
 
 	/** Restores the snapshot taken when leaving Build. */
@@ -233,6 +261,7 @@ export default function modesExtension(pi: ExtensionAPI): void {
 	/** Applies a mode for the rest of this session and updates the footer. */
 	const selectMode = (next: AgentMode, ctx: ExtensionContext): void => {
 		mode = next;
+		modeRevision += 1;
 		applyModeTools(next);
 		setModeStatus(ctx, next);
 		ctx.ui.notify(`Mode: ${next}`, "info");
@@ -281,6 +310,7 @@ export default function modesExtension(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		mode = "build";
+		modeRevision += 1;
 		restoreBuildTools();
 		setModeStatus(ctx, mode);
 	});
@@ -306,6 +336,25 @@ export default function modesExtension(pi: ExtensionAPI): void {
 
 	pi.on("before_agent_start", (event) => {
 		return { systemPrompt: applyModePrompt(event.systemPrompt, mode) };
+	});
+
+	// Add one transition marker to the provider request without persisting it in session history.
+	pi.on("context", (event) => {
+		if (announcedModeRevision === modeRevision) return;
+
+		announcedModeRevision = modeRevision;
+		return {
+			messages: [
+				...event.messages,
+				{
+					role: "custom",
+					customType: "agent-mode-context",
+					content: `[CURRENT MODE: ${mode.toUpperCase()} — supersedes earlier mode statements]`,
+					display: false,
+					timestamp: Date.now(),
+				},
+			],
+		};
 	});
 }
 

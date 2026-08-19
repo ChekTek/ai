@@ -26,19 +26,28 @@ const PERSONAS = {
 		description: "Pi's default coding-assistant identity",
 		/** Default first identity sentence from Pi's built-in system prompt. */
 		identity: "You are an expert coding assistant operating inside pi, a coding agent harness.",
+		prompt: "The active persona is developer. Earlier designer or general persona instructions no longer apply.",
 	},
 	designer: {
 		description: "Layouts, visual systems, copy, and design specifications",
 		identity: "You are an expert designer operating inside pi, a coding agent harness.",
+		prompt: "The active persona is designer. Earlier developer or general persona instructions no longer apply.",
 	},
 	general: {
 		description: "Helpful assistant for research and general work",
 		identity: "You are a helpful assistant operating inside pi, a coding agent harness.",
+		prompt: "The active persona is general. Earlier developer or designer persona instructions no longer apply.",
 	},
 } as const;
 
 /** Persona names accepted by `/persona`. */
 const PERSONA_NAMES = Object.keys(PERSONAS) as Persona[];
+
+/** Identity sentences this extension may have injected on an earlier turn. */
+const PERSONA_IDENTITIES = PERSONA_NAMES.map((name) => PERSONAS[name].identity);
+
+/** Prompt blocks owned by this extension and replaced with the active persona. */
+const PERSONA_PROMPT_BLOCKS = PERSONA_NAMES.map((name) => PERSONAS[name].prompt);
 
 /** Returns the next persona in cycle order. */
 function nextPersona(current: Persona): Persona {
@@ -63,19 +72,38 @@ function formatPiDocumentation(): string {
 - Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
 }
 
+/** Returns the first managed identity sentence in prompt order. */
+function findPersonaIdentity(systemPrompt: string): string | undefined {
+	let firstIdentity: string | undefined;
+	let firstIndex = systemPrompt.length;
+	for (const identity of PERSONA_IDENTITIES) {
+		const index = systemPrompt.indexOf(identity);
+		if (index < 0 || index >= firstIndex) continue;
+		firstIdentity = identity;
+		firstIndex = index;
+	}
+	return firstIdentity;
+}
+
 /**
- * Applies the active persona and optional restored Pi docs to Pi's default
- * system prompt. Only the first identity sentence is swapped so plan/chat
- * modes can rewrite the following "You help users by …" line. Custom
- * `--system-prompt` / `SYSTEM.md` text is returned unchanged unless it
- * contains the default first identity sentence.
+ * Replaces the active managed identity and optionally restores Pi docs. Only
+ * the first identity sentence is swapped so plan/chat modes can rewrite the
+ * following "You help users by …" line. Custom `--system-prompt` / `SYSTEM.md`
+ * text is returned unchanged unless it contains a managed identity sentence.
+ * The explicit persona block retires earlier persona instructions so changes
+ * remain unambiguous in an existing conversation.
  */
 function applyPersonaPrompt(systemPrompt: string, persona: Persona, restorePiDocs: boolean): string {
-	if (!systemPrompt.includes(PERSONAS.developer.identity)) {
-		return systemPrompt;
-	}
+	const currentIdentity = findPersonaIdentity(systemPrompt);
+	if (!currentIdentity) return systemPrompt;
 
-	let prompt = systemPrompt.replace(PERSONAS.developer.identity, PERSONAS[persona].identity);
+	const selected = PERSONAS[persona];
+	let prompt = systemPrompt.replace(currentIdentity, selected.identity);
+	for (const previousBlock of PERSONA_PROMPT_BLOCKS) {
+		prompt = prompt.replaceAll(`\n\n${previousBlock}`, "");
+	}
+	prompt += `\n\n${selected.prompt}`;
+
 	prompt = prompt.replace(PI_DOCS_BLOCK, "");
 	const hasPiDocs = prompt.includes("Pi documentation (read only when the user asks about pi itself");
 	if (restorePiDocs && !hasPiDocs) {
@@ -176,14 +204,18 @@ async function showPersonaPicker(ctx: ExtensionCommandContext, persona: Persona)
 	return result;
 }
 
-/** Swaps the default coding identity and gates Pi's self-documentation behind `/skill:build-for-pi`. */
+/** Swaps the managed identity, announces it once outbound, and gates Pi documentation. */
 export default function personasExtension(pi: ExtensionAPI): void {
 	let persona: Persona = "developer";
+	let personaRevision = 0;
+	let announcedPersonaRevision = -1;
+	let managesPersona = false;
 	let restorePiDocs = false;
 
 	/** Applies a persona for the rest of this session and updates the footer. */
 	const selectPersona = (next: Persona, ctx: ExtensionContext): void => {
 		persona = next;
+		personaRevision += 1;
 		setPersonaStatus(ctx, next);
 		ctx.ui.notify(`Persona: ${next}`, "info");
 	};
@@ -231,6 +263,7 @@ export default function personasExtension(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		persona = "developer";
+		personaRevision += 1;
 		restorePiDocs = false;
 		setPersonaStatus(ctx, persona);
 	});
@@ -243,7 +276,27 @@ export default function personasExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("before_agent_start", (event) => {
+		managesPersona = findPersonaIdentity(event.systemPrompt) !== undefined;
 		return { systemPrompt: applyPersonaPrompt(event.systemPrompt, persona, restorePiDocs) };
+	});
+
+	// Add one transition marker to the provider request without persisting it in session history.
+	pi.on("context", (event) => {
+		if (!managesPersona || announcedPersonaRevision === personaRevision) return;
+
+		announcedPersonaRevision = personaRevision;
+		return {
+			messages: [
+				...event.messages,
+				{
+					role: "custom",
+					customType: "agent-persona-context",
+					content: `[CURRENT PERSONA: ${persona.toUpperCase()} — supersedes earlier persona statements]`,
+					display: false,
+					timestamp: Date.now(),
+				},
+			],
+		};
 	});
 }
 
