@@ -28,6 +28,7 @@ paths:
 - Logic used by one action: private methods on that action class.
 - SingletonActions have all visible actions available in `this.actions`.
 - Actions should initialize in `onWillAppear` and clean up in `onWillDisappear`.
+- Verify that cleanup with the `test-streamdeck` skill (`sdtest check-lifecycle`) rather than by inspection.
 
 ## Settings
 
@@ -41,7 +42,7 @@ paths:
 
 ## Icons
 
-- Stream Deck uses SVG Tiny 1.2 specification, not full SVG.
+- Stream Deck uses SVG Tiny 1.2 specification, not full SVG. Check with `sdtest lint-svg`; a browser preview will not catch violations.
 - Match existing SVG style, colors, and pieces. Key and action icons stay consistent. Action list icons are white.
 
 ## Native addons
