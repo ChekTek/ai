@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
@@ -58,10 +58,9 @@ async function createWorktree(
 			await git("git", ["worktree", "add", dir, "-b", branch, "HEAD"], { cwd: root });
 			return { name, branch, path: dir };
 		} catch (error) {
-			if (custom) {
-				notify(error instanceof Error ? error.message : "git worktree add failed", "error");
-				return undefined;
-			}
+			if (!custom && isWorktreeCollision(error, branch, dir)) continue;
+			notify(commandError(error, "git worktree add failed"), "error");
+			return undefined;
 		}
 	}
 	notify("Could not create a worktree with a free name.", "error");
@@ -75,6 +74,28 @@ async function refExists(cwd: string, branch: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+function commandStderr(error: unknown): string {
+	if (!error || typeof error !== "object" || !("stderr" in error)) return "";
+	return typeof error.stderr === "string" ? error.stderr : "";
+}
+
+function commandError(error: unknown, fallback: string): string {
+	const stderr = commandStderr(error).trim();
+	if (stderr) return stderr;
+	return error instanceof Error ? error.message : fallback;
+}
+
+function isWorktreeCollision(error: unknown, branch: string, dir: string): boolean {
+	const stderr = commandStderr(error);
+	const ref = `refs/heads/${branch}`;
+	const paths = [dir, dir.replaceAll("\\", "/")];
+	return (
+		stderr.includes(`a branch named '${branch}' already exists`) ||
+		(stderr.includes(`cannot lock ref '${ref}'`) && stderr.includes("reference already exists")) ||
+		(stderr.includes("already exists") && paths.some((path) => stderr.includes(path)))
+	);
 }
 
 function piLaunch(): string {
@@ -107,6 +128,12 @@ function herdrPaneId(value: unknown): string | undefined {
 	return undefined;
 }
 
+function herdrAgentName(name: string): string {
+	const suffix = createHash("sha256").update(name).digest("hex").slice(0, 8);
+	const prefix = name.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32 - suffix.length - 1);
+	return `${prefix}-${suffix}`;
+}
+
 async function openHerdrTab(dir: string, name: string, options: LaunchOptions): Promise<void> {
 	const created = await herdr<{ result?: { tab?: unknown; root_pane?: unknown } }>([
 		"tab",
@@ -118,8 +145,7 @@ async function openHerdrTab(dir: string, name: string, options: LaunchOptions): 
 	]);
 	const pane = herdrPaneId(created.result?.root_pane) ?? herdrPaneId(created.result?.tab);
 	if (!pane) throw new Error("herdr tab create did not return a pane ID");
-	const agentName = name.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
-	const args = ["agent", "start", agentName, "--kind", "pi", "--pane", pane];
+	const args = ["agent", "start", herdrAgentName(name), "--kind", "pi", "--pane", pane];
 	if (options.passContext && options.sessionFile) args.push("--", "--fork", options.sessionFile);
 	await herdr(args);
 }
@@ -197,6 +223,15 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				notify(`Not a git repository: ${ctx.cwd}`, "error");
 				return;
 			}
+			if (custom) {
+				const branch = `wt-${custom}`;
+				try {
+					await git("git", ["check-ref-format", "--branch", branch], { cwd: root });
+				} catch {
+					notify(`${branch} is not a valid Git branch name.`, "error");
+					return;
+				}
+			}
 
 			const worktree = await createWorktree(root, custom, notify);
 			if (!worktree) return;
@@ -209,7 +244,10 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				passContext: false,
 			};
 			if (!ctx.hasUI) {
-				notify(`Worktree at ${worktree.path} (branch ${worktree.branch}). Start with: cd ${worktree.path} && pi`, "info");
+				notify(
+					`Worktree at ${worktree.path} (branch ${worktree.branch}). Open that directory and run Pi.`,
+					"info",
+				);
 				return;
 			}
 
@@ -217,7 +255,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				options.passContext =
 					(await ctx.ui.confirm(
 						"Pass the current conversation along?",
-						`New Pi starts with: pi --fork ${sessionFile}`,
+						`The new Pi session will fork ${sessionFile}.`,
 					)) === true;
 			}
 
@@ -226,7 +264,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				run: () => void | Promise<void>;
 			}
 			const choices: Choice[] = [];
-			if (ctx.mode === "tui") {
+			if (ctx.mode === "tui" && process.platform !== "win32") {
 				choices.push({
 					label: "1. Relaunch Pi in this terminal",
 					run: () => relaunchInPlace(worktree.path, launchLine(worktree.path, options), () => ctx.shutdown()),
@@ -246,11 +284,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			}
 			choices.push({
 				label: "4. Do nothing, keep this window",
-				run: () =>
-					notify(
-						`${worktree.path} — start with: cd ${worktree.path} && pi`,
-						"info",
-					),
+				run: () => notify(`${worktree.path} — open this directory and run Pi.`, "info"),
 			});
 
 			let chosen: Choice | undefined;
