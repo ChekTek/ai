@@ -75,7 +75,6 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 
-		ctx.ui.setToolsExpanded(true);
 		ctx.ui.setFooter((tui, theme, footerData) => {
 			const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 
