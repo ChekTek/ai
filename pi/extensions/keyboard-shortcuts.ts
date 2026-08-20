@@ -1,13 +1,9 @@
-import { sep } from "node:path";
-
-import type { Usage } from "@earendil-works/pi-ai";
-import { keyHint, keyText, rawKeyHint, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { keyHint, keyText, rawKeyHint, type ExtensionAPI, type Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
-/** Built-in keybinding ids shown below pi's usage, model, and effort footer line. */
+/** Built-in keybinding ids shown below the status lines. */
 const BINDING_SHORTCUTS = [
 	["app.model.select", "models"],
-	["app.model.cycleForward", "cycle"],
 	["app.thinking.cycle", "effort"],
 ] as const;
 
@@ -17,9 +13,8 @@ const RAW_SHORTCUTS = [
 	["ctrl+q", "mode"],
 ] as const;
 
-/** Status keys shown on the cwd line above the model (`modes.ts`, `personas.ts`). */
-const CWD_STATUS_KEYS = ["mode", "persona"] as const;
-const CWD_STATUS_KEY_SET = new Set<string>(CWD_STATUS_KEYS);
+/** Status keys placed on the split status lines (`modes.ts`, `personas.ts`). */
+const SPLIT_STATUS_KEYS = new Set(["mode", "persona"]);
 /** Extension statuses that should not occupy their own footer line. */
 const HIDDEN_STATUS_KEYS = new Set(["cursor"]);
 
@@ -31,116 +26,98 @@ function formatTokens(count: number): string {
 	return `${(count / 1_000_000).toFixed(1)}M`;
 }
 
-/** Replaces the current user's home directory with a tilde. */
-function formatWorkingDirectory(cwd: string): string {
-	const home = process.env.HOME ?? process.env.USERPROFILE;
-	if (!home) return cwd;
-	if (cwd === home) return "~";
-	return cwd.startsWith(`${home}${sep}`) ? `~${cwd.slice(home.length)}` : cwd;
+/** Colors a thinking level with the matching theme token. */
+function formatThinkingLevel(theme: Theme, level: string): string {
+	switch (level) {
+		case "minimal":
+			return theme.fg("thinkingMinimal", level);
+		case "low":
+			return theme.fg("thinkingLow", level);
+		case "medium":
+			return theme.fg("thinkingMedium", level);
+		case "high":
+			return theme.fg("thinkingHigh", level);
+		case "xhigh":
+			return theme.fg("thinkingXhigh", level);
+		case "max":
+			return theme.fg("thinkingMax", level);
+		default:
+			return theme.fg("thinkingOff", level);
+	}
 }
 
-/** Adds one usage record to the cumulative footer totals. */
-function addUsage(totals: UsageTotals, usage: Usage): void {
-	totals.input += usage.input;
-	totals.output += usage.output;
-	totals.cacheRead += usage.cacheRead;
-	totals.cacheWrite += usage.cacheWrite;
-	totals.cost += usage.cost.total;
+/** Colors context usage by how full the window is. */
+function formatContextUsage(theme: Theme, percent: number | null | undefined, windowSize: number): string {
+	const tokens = formatTokens(windowSize);
+	const display = percent === null || percent === undefined ? `?/${tokens}` : `${percent.toFixed(1)}%/${tokens}`;
+	if (percent === null || percent === undefined) return theme.fg("dim", display);
+	if (percent > 90) return theme.fg("error", display);
+	if (percent > 70) return theme.fg("warning", display);
+	return theme.fg("text", display);
 }
 
-/** Packs complete shortcut hints onto as many lines as the terminal requires. */
-function wrapHints(hints: string[], separator: string, width: number): string[] {
-	if (width <= 0) return [];
+/** Left-aligns `left` and right-aligns `right` on one footer row. */
+function splitLine(left: string, right: string, width: number, theme: Theme): string {
+	if (!right) return truncateToWidth(left, width, theme.fg("dim", "..."));
+	if (!left) {
+		const padding = " ".repeat(Math.max(0, width - visibleWidth(right)));
+		return truncateToWidth(`${padding}${right}`, width, "");
+	}
+
+	const availableLeft = Math.max(0, width - visibleWidth(right) - 2);
+	const visibleLeft = truncateToWidth(left, availableLeft, theme.fg("dim", "..."));
+	const padding = " ".repeat(Math.max(1, width - visibleWidth(visibleLeft) - visibleWidth(right)));
+	return truncateToWidth(`${visibleLeft}${padding}${right}`, width, "");
+}
+
+/** Packs shortcut hints onto one line when they fit; otherwise two per line. */
+function wrapHintPairs(items: string[], separator: string, width: number): string[] {
+	if (width <= 0 || items.length === 0) return [];
+
+	const joined = items.join(separator);
+	if (visibleWidth(joined) <= width) return [joined];
 
 	const lines: string[] = [];
-	let line = "";
-
-	for (const hint of hints) {
-		const candidate = line ? `${line}${separator}${hint}` : hint;
-		if (visibleWidth(candidate) <= width) {
-			line = candidate;
+	for (let i = 0; i < items.length; i += 2) {
+		const pair = items.slice(i, i + 2);
+		const combined = pair.join(separator);
+		if (pair.length === 1 || visibleWidth(combined) <= width) {
+			lines.push(truncateToWidth(combined, width, ""));
 			continue;
 		}
 
-		if (line) lines.push(line);
-		line = truncateToWidth(hint, width, "");
+		for (const item of pair) {
+			lines.push(truncateToWidth(item, width, ""));
+		}
 	}
-
-	if (line) lines.push(line);
 	return lines;
 }
 
-/** Adds a wrapping, keybinding-aware shortcut section to pi's footer. */
+/** Adds split status lines and a wrapping shortcut guide to pi's footer. */
 export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 
-		ctx.ui.setFooter((tui, theme, footerData) => {
-			const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
-
+		ctx.ui.setFooter((_tui, theme, footerData) => {
 			return {
-				dispose: unsubscribe,
 				invalidate() {},
 				render(width: number): string[] {
-					const totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-					for (const entry of ctx.sessionManager.getEntries()) {
-						if (entry.type === "message" && entry.message.role === "assistant") {
-							addUsage(totals, entry.message.usage);
-						} else if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.usage) {
-							addUsage(totals, entry.message.usage);
-						} else if ((entry.type === "branch_summary" || entry.type === "compaction") && entry.usage) {
-							addUsage(totals, entry.usage);
-						}
-					}
+					const modelName = ctx.model?.id ?? "no-model";
+					const model = footerData.getAvailableProviderCount() > 1 && ctx.model
+						? `(${ctx.model.provider}) ${modelName}`
+						: modelName;
 
-					let workingDirectory = formatWorkingDirectory(ctx.cwd);
-					const branch = footerData.getGitBranch();
-					if (branch) workingDirectory += ` (${branch})`;
-					const sessionName = ctx.sessionManager.getSessionName();
-					if (sessionName) workingDirectory += ` • ${sessionName}`;
-
-					const stats = [];
-					if (totals.input) stats.push(`↑${formatTokens(totals.input)}`);
-					if (totals.output) stats.push(`↓${formatTokens(totals.output)}`);
-					if (totals.cacheRead) stats.push(`R${formatTokens(totals.cacheRead)}`);
-					if (totals.cacheWrite) stats.push(`W${formatTokens(totals.cacheWrite)}`);
-					if (totals.cost) stats.push(`$${totals.cost.toFixed(3)}`);
+					const topLeft = ctx.model?.reasoning
+						? `${theme.fg("accent", model)}:${formatThinkingLevel(theme, ctx.thinkingLevel ?? "off")}`
+						: theme.fg("accent", model);
 
 					const context = ctx.getContextUsage();
 					const contextWindow = context?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-					const contextUsage = context?.percent === null || context?.percent === undefined
-						? `?/${formatTokens(contextWindow)}`
-						: `${context.percent.toFixed(1)}%/${formatTokens(contextWindow)}`;
-					stats.push(`${contextUsage} (auto)`);
-
-					const modelName = ctx.model?.id ?? "no-model";
-					const modelWithEffort = ctx.model?.reasoning ? `${modelName} • ${ctx.thinkingLevel}` : modelName;
-					const model = footerData.getAvailableProviderCount() > 1 && ctx.model
-						? `(${ctx.model.provider}) ${modelWithEffort}`
-						: modelWithEffort;
-					const statsText = stats.join(" ");
-					const availableModelWidth = Math.max(0, width - visibleWidth(statsText) - 2);
-					const visibleModel = truncateToWidth(model, availableModelWidth, "");
-					const padding = " ".repeat(Math.max(1, width - visibleWidth(statsText) - visibleWidth(visibleModel)));
-					const usageLine = truncateToWidth(`${statsText}${padding}${visibleModel}`, width, "");
+					const bottomLeft = formatContextUsage(theme, context?.percent, contextWindow);
 
 					const statuses = footerData.getExtensionStatuses();
-					const cwdStatus = CWD_STATUS_KEYS.map((key) => statuses.get(key))
-						.filter((status): status is string => Boolean(status))
-						.join("  ");
-					const cwdText = theme.fg("dim", workingDirectory);
-					let cwdLine = truncateToWidth(cwdText, width, theme.fg("dim", "..."));
-					if (cwdStatus) {
-						const availableCwdWidth = Math.max(0, width - visibleWidth(cwdStatus) - 2);
-						const visibleCwd = truncateToWidth(cwdText, availableCwdWidth, theme.fg("dim", "..."));
-						const cwdPadding = " ".repeat(
-							Math.max(1, width - visibleWidth(visibleCwd) - visibleWidth(cwdStatus)),
-						);
-						cwdLine = truncateToWidth(`${visibleCwd}${cwdPadding}${cwdStatus}`, width, "");
-					}
-
-					const statusLines = [...statuses]
-						.filter(([key]) => !CWD_STATUS_KEY_SET.has(key) && !HIDDEN_STATUS_KEYS.has(key))
+					const extraStatusLines = [...statuses]
+						.filter(([key]) => !SPLIT_STATUS_KEYS.has(key) && !HIDDEN_STATUS_KEYS.has(key))
 						.map(([, status]) => truncateToWidth(status, width, theme.fg("dim", "...")));
 					const separator = theme.fg("borderMuted", "─".repeat(Math.max(0, width)));
 					const hintSeparator = theme.fg("dim", " · ");
@@ -152,17 +129,14 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 					];
 
 					return [
-						cwdLine,
-						theme.fg("dim", usageLine),
-						...statusLines,
+						splitLine(topLeft, statuses.get("mode") ?? "", width, theme),
+						splitLine(bottomLeft, statuses.get("persona") ?? "", width, theme),
+						...extraStatusLines,
 						separator,
-						...wrapHints(hints, hintSeparator, width),
+						...wrapHintPairs(hints, hintSeparator, width),
 					];
 				},
 			};
 		});
 	});
 }
-
-/** Cumulative usage values displayed by the footer. */
-type UsageTotals = Pick<Usage, "input" | "output" | "cacheRead" | "cacheWrite"> & { cost: number };
