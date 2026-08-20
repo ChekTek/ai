@@ -1,5 +1,5 @@
 import { DynamicBorder, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Container, isKeyRelease, matchesKey, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
+import { Container, isKeyRelease, matchesKey, type SelectItem, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 /** Sentinel value for the UI-appended custom-answer row. */
@@ -109,6 +109,32 @@ function askUserResult(
 	return { content: [{ type: "text", text }], details };
 }
 
+/** Wraps option labels and descriptions so trade-off text is not clipped to one line. */
+function paintOptionList(
+	list: Container,
+	items: SelectItem[],
+	selectedIndex: number,
+	theme: AskUserTheme,
+): void {
+	list.clear();
+	for (const [index, item] of items.entries()) {
+		const selected = index === selectedIndex;
+		const prefix = selected ? "→ " : "  ";
+		const label = selected ? theme.fg("accent", `${prefix}${item.label}`) : `${prefix}${item.label}`;
+		list.addChild(new Text(label, 1, 0));
+		const description = item.description?.trim();
+		if (!description) continue;
+		const styled = selected ? theme.fg("accent", description) : theme.fg("muted", description);
+		list.addChild(new Text(styled, 3, 0));
+	}
+}
+
+/** Wraps a highlight index so up from the first option lands on the last. */
+function wrapSelectedIndex(index: number, count: number): number {
+	if (count <= 0) return 0;
+	return ((index % count) + count) % count;
+}
+
 /** Shows the TUI option list. `undefined` means custom UI is unavailable. */
 function selectInTui(
 	question: string,
@@ -117,8 +143,9 @@ function selectInTui(
 	ctx: ExtensionContext,
 	signal: AbortSignal | undefined,
 ): Promise<string | null | undefined> {
-	return ctx.ui.custom<string | null>((tui, theme, _keybindings, done) => {
+	return ctx.ui.custom<string | null>((tui, theme, keybindings, done) => {
 		let settled = false;
+		let selectedIndex = 0;
 		function finish(value: string | null) {
 			if (settled) return;
 			settled = true;
@@ -130,26 +157,24 @@ function selectInTui(
 		}
 
 		const container = new Container();
+		const optionList = new Container();
 		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
 		if (context) {
 			container.addChild(new Text(theme.fg("muted", context), 1, 0));
 		}
 		container.addChild(new Text(theme.fg("accent", theme.bold(question)), 1, 0));
-
-		const selectList = new SelectList(items, items.length, {
-			selectedPrefix: (text) => theme.fg("accent", text),
-			selectedText: (text) => theme.fg("accent", text),
-			description: (text) => theme.fg("muted", text),
-			scrollInfo: (text) => theme.fg("dim", text),
-			noMatch: (text) => theme.fg("warning", text),
-		});
-		selectList.onSelect = (item) => finish(item.value);
-		selectList.onCancel = () => finish(null);
-		container.addChild(selectList);
+		paintOptionList(optionList, items, selectedIndex, theme);
+		container.addChild(optionList);
 		container.addChild(
 			new Text(theme.fg("dim", `↑↓ or 1-${items.length} highlight • enter select • esc cancel`), 1, 0),
 		);
 		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+
+		function setSelectedIndex(index: number) {
+			selectedIndex = wrapSelectedIndex(index, items.length);
+			paintOptionList(optionList, items, selectedIndex, theme);
+			tui.requestRender();
+		}
 
 		signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -159,12 +184,25 @@ function selectInTui(
 			handleInput: (data: string) => {
 				const index = optionIndexFromKey(data, items.length);
 				if (index !== undefined) {
-					selectList.setSelectedIndex(index);
-					tui.requestRender();
+					setSelectedIndex(index);
 					return;
 				}
-				selectList.handleInput(data);
-				tui.requestRender();
+				if (keybindings.matches(data, "tui.select.up")) {
+					setSelectedIndex(selectedIndex - 1);
+					return;
+				}
+				if (keybindings.matches(data, "tui.select.down")) {
+					setSelectedIndex(selectedIndex + 1);
+					return;
+				}
+				if (keybindings.matches(data, "tui.select.confirm")) {
+					const item = items[selectedIndex];
+					if (item) finish(item.value);
+					return;
+				}
+				if (keybindings.matches(data, "tui.select.cancel")) {
+					finish(null);
+				}
 			},
 			dispose: () => signal?.removeEventListener("abort", onAbort),
 		};
@@ -356,6 +394,11 @@ export default function askUserExtension(pi: ExtensionAPI): void {
 			return new Text(theme.fg("success", "✓ ") + theme.fg("accent", details.answer), 0, 0);
 		},
 	});
+}
+
+/** Theme colors used while painting the TUI option list. */
+interface AskUserTheme {
+	fg(name: string, text: string): string;
 }
 
 /** One model-authored choice shown in the picker. */
