@@ -24,10 +24,10 @@ function restTitle(pi: ExtensionAPI, ctx: ExtensionContext): string {
 	return sessionName ? `${sessionName} - ${cwd}` : cwd;
 }
 
-/** Working marker: `◽︎ - <session name> - <cwd>`. Idle states omit the marker. */
+/** Working marker: `❖ <session name> - <cwd>`. Idle states omit the marker. */
 function titleFor(status: Status, pi: ExtensionAPI, ctx: ExtensionContext): string {
 	const rest = restTitle(pi, ctx);
-	return status === "working" ? `◽︎ - ${rest}` : rest;
+	return status === "working" ? `❖ ${rest}` : rest;
 }
 
 /** Shows a working title, and rings the bell when pi finishes or blocks on the user. */
