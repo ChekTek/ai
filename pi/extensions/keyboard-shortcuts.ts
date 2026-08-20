@@ -107,11 +107,7 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 			return {
 				invalidate() {},
 				render(width: number): string[] {
-					const modelName = ctx.model?.id ?? "no-model";
-					const model = footerData.getAvailableProviderCount() > 1 && ctx.model
-						? `(${ctx.model.provider}) ${modelName}`
-						: modelName;
-
+					const model = ctx.model?.id ?? "no-model";
 					const topLeft = ctx.model?.reasoning
 						? `${theme.fg("accent", model)}:${formatThinkingLevel(theme, ctx.thinkingLevel ?? "off")}`
 						: theme.fg("accent", model);
