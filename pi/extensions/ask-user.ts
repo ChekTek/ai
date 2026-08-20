@@ -14,6 +14,10 @@ const OTHER_DESCRIPTION = "Write a custom answer";
 /** Canonical reserved names after punctuation is stripped. The UI appends the custom row. */
 const RESERVED_LABELS = new Set(["other", "type something"]);
 
+/** Labels the model is instructed to use when checking a custom-answer paraphrase. */
+const CONFIRM_NORMALIZED = new Set(["confirm", "confirm recommended"]);
+const REVISE_NORMALIZED = new Set(["revise"]);
+
 /** Digit keys that jump the highlight to a numbered option. At most 4 options plus Type something. */
 const OPTION_DIGITS = ["1", "2", "3", "4", "5"] as const;
 
@@ -32,7 +36,7 @@ const AskUserParams = Type.Object({
 	options: Type.Array(OptionSchema, {
 		minItems: 2,
 		maxItems: 4,
-		description: "2-4 mutually exclusive options. Do not include Other; the UI adds Type something.",
+		description: "2-4 mutually exclusive options. Do not include Other; the UI adds Type something except on Confirm/Revise understanding checks.",
 	}),
 });
 
@@ -48,6 +52,21 @@ function normalizeLabel(label: string): string {
 /** Returns whether a model-authored option label collides with the custom row. */
 function isReservedLabel(label: string): boolean {
 	return RESERVED_LABELS.has(normalizeLabel(label));
+}
+
+/** Returns whether a selected label is the understanding-check Confirm or Revise option. */
+function confirmationChoice(label: string): "confirm" | "revise" | undefined {
+	const normalized = normalizeLabel(label);
+	if (CONFIRM_NORMALIZED.has(normalized)) return "confirm";
+	if (REVISE_NORMALIZED.has(normalized)) return "revise";
+	return undefined;
+}
+
+/** True when the model is checking a paraphrase with Confirm and Revise only. */
+function isUnderstandingCheck(options: AskUserOption[]): boolean {
+	if (options.length !== 2) return false;
+	const kinds = new Set(options.map((option) => confirmationChoice(option.label)));
+	return kinds.has("confirm") && kinds.has("revise");
 }
 
 /** Returns a repeated option label, comparing trimmed text so the returned answer is unambiguous. */
@@ -159,17 +178,20 @@ async function selectInDialogs(
 	options: AskUserOption[],
 	ctx: ExtensionContext,
 	signal: AbortSignal | undefined,
+	allowCustom: boolean,
 ): Promise<string | null> {
 	const dialogOpts = signal ? { signal } : undefined;
 	const title = context ? `${context} — ${question}` : question;
 	const displays = options.map((option, index) => `${numberedLabel(index, option.label)} — ${option.description}`);
-	displays.push(`${numberedLabel(options.length, OTHER_LABEL)} — ${OTHER_DESCRIPTION}`);
+	if (allowCustom) {
+		displays.push(`${numberedLabel(options.length, OTHER_LABEL)} — ${OTHER_DESCRIPTION}`);
+	}
 
 	const selected = await ctx.ui.select(title, displays, dialogOpts);
 	if (!selected) return null;
 
 	const index = displays.indexOf(selected);
-	if (index === options.length) return OTHER_VALUE;
+	if (allowCustom && index === options.length) return OTHER_VALUE;
 	const option = options[index];
 	if (!option) return null;
 	return option.label;
@@ -182,26 +204,27 @@ async function collectAnswer(
 	options: AskUserOption[],
 	ctx: ExtensionContext,
 	signal: AbortSignal | undefined,
+	allowCustom: boolean,
 ): Promise<{ answer: string; wasCustom: boolean } | null> {
-	const items: SelectItem[] = [
-		...options.map((option, index) => ({
-			value: option.label,
-			label: numberedLabel(index, option.label),
-			description: option.description,
-		})),
-		{
+	const items: SelectItem[] = options.map((option, index) => ({
+		value: option.label,
+		label: numberedLabel(index, option.label),
+		description: option.description,
+	}));
+	if (allowCustom) {
+		items.push({
 			value: OTHER_VALUE,
 			label: numberedLabel(options.length, OTHER_LABEL),
 			description: OTHER_DESCRIPTION,
-		},
-	];
+		});
+	}
 
 	let selected: string | null | undefined;
 	if (ctx.mode === "tui") {
 		selected = await selectInTui(question, context, items, ctx, signal);
 	}
 	if (selected === undefined) {
-		selected = await selectInDialogs(question, context, options, ctx, signal);
+		selected = await selectInDialogs(question, context, options, ctx, signal, allowCustom);
 	}
 	if (selected === null) return null;
 
@@ -213,20 +236,41 @@ async function collectAnswer(
 	return { answer: trimmed, wasCustom: true };
 }
 
+/** Builds the model-facing result text for a completed choice. */
+function choiceResultText(choice: { answer: string; wasCustom: boolean }): string {
+	if (choice.wasCustom) {
+		return [
+			`User wrote custom feedback: ${JSON.stringify(choice.answer)}`,
+			"This was custom feedback. Immediately call ask_user again with your paraphrase of that feedback as the question and exactly two options: Confirm (Recommended) — proceed with this understanding; Revise — ask the original decision again with updated options.",
+			"Do not wait for a chat reply. If they select Revise or write more custom text, keep calling ask_user until they select Confirm or a preset option.",
+		].join("\n");
+	}
+
+	const confirmation = confirmationChoice(choice.answer);
+	if (confirmation === "confirm") {
+		return `User selected: ${choice.answer}\nThe user confirmed your understanding. Proceed with that interpretation. Do not call ask_user again for this decision.`;
+	}
+	if (confirmation === "revise") {
+		return `User selected: ${choice.answer}\nThe user wants to revise. Call ask_user again for the original decision with updated options that incorporate the custom feedback.`;
+	}
+
+	return `User selected: ${choice.answer}`;
+}
+
 /** Registers the `ask_user` tool for one structured question with a custom-answer row. */
 export default function askUserExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "ask_user",
 		label: "Ask User",
 		description:
-			"Ask the user one structured question with 2-4 options. Use when you cannot proceed without a user decision. The UI always adds a Type something. row for custom answers — do not include Other or Type something in options. If you recommend an option, put it first and append (Recommended) to the label.",
+			"Ask the user one structured question with 2-4 options. Use when you cannot proceed without a user decision. The UI always adds a Type something. row for custom answers — do not include Other or Type something in options. If you recommend an option, put it first and append (Recommended) to the label. After a custom answer, follow up with Confirm (Recommended) and Revise instead of asking in chat.",
 		promptSnippet: "Ask the user one structured question with 2-4 options when a decision cannot be inferred",
 		promptGuidelines: [
 			"Use ask_user for genuine forks that cannot be resolved from the repo or a sensible default. Do not use ask_user for trivial formatting.",
 			"Call ask_user with one question at a time and 2-4 mutually exclusive options, each with a label and a tradeoff description. Put a recommendation first and suffix (Recommended).",
-			"Include context on ask_user when the tradeoff is not obvious from the question. Do not author an Other option; the UI adds Type something.",
-			"After a custom ask_user answer, reply in chat paraphrasing the feedback and wait for confirmation before implementing or asking another question.",
-			"Do not re-ask a decision already answered with ask_user in this session.",
+			"Include context on ask_user when the tradeoff is not obvious from the question. Do not author an Other option; the UI adds Type something except on Confirm/Revise understanding checks.",
+			"After a custom ask_user answer, immediately call ask_user again with your paraphrase as the question and exactly two options: Confirm (Recommended) and Revise. Do not wait for a chat reply.",
+			"If the user selects Confirm on that check, proceed with that understanding. If they select Revise or write more custom text, call ask_user again on the original decision with updated options. Repeat until they select Confirm or a preset option. Do not re-ask a decision already confirmed or answered with a preset option in this session.",
 		],
 		parameters: AskUserParams,
 		executionMode: "sequential",
@@ -273,23 +317,19 @@ export default function askUserExtension(pi: ExtensionAPI): void {
 				);
 			}
 
-			const choice = await collectAnswer(question, context, params.options, ctx, signal);
+			const choice = await collectAnswer(
+				question,
+				context,
+				params.options,
+				ctx,
+				signal,
+				!isUnderstandingCheck(params.options),
+			);
 			if (!choice) {
 				return askUserResult(question, context, null, false, true, "User cancelled the question");
 			}
 
-			if (choice.wasCustom) {
-				return askUserResult(
-					question,
-					context,
-					choice.answer,
-					true,
-					false,
-					`User wrote custom feedback: ${JSON.stringify(choice.answer)}\nThis was custom feedback. Restate it in your own words and wait for the user to confirm or correct it before continuing or calling ask_user again.`,
-				);
-			}
-
-			return askUserResult(question, context, choice.answer, false, false, `User selected: ${choice.answer}`);
+			return askUserResult(question, context, choice.answer, choice.wasCustom, false, choiceResultText(choice));
 		},
 
 		renderCall(args, theme) {
