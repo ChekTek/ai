@@ -66,6 +66,11 @@ function splitLine(left: string, right: string, width: number, theme: Theme): st
 
 	const availableLeft = Math.max(0, width - visibleWidth(right) - 2);
 	const visibleLeft = truncateToWidth(left, availableLeft, theme.fg("dim", "..."));
+	if (!visibleLeft) {
+		const padding = " ".repeat(Math.max(0, width - visibleWidth(right)));
+		return truncateToWidth(`${padding}${right}`, width, "");
+	}
+
 	const padding = " ".repeat(Math.max(1, width - visibleWidth(visibleLeft) - visibleWidth(right)));
 	return truncateToWidth(`${visibleLeft}${padding}${right}`, width, "");
 }
