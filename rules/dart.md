@@ -6,4 +6,4 @@ paths:
 
 # Dart Instructions
 
-- Keep architecture explicit in handwritten code; use code generation only to remove meaningful boilerplate, never to hide dependency wiring or control flow.
+- Any top-level name referenced from another file is declared by hand. Generated code may implement or extend a handwritten declaration, never introduce the symbol itself, so go-to-definition always lands in handwritten code.
