@@ -1,5 +1,5 @@
 ---
-description: 'Use when setting project-wide coding standards, AI assistant behavior, collaboration rules, and repository workflow expectations.'
+description: "Use when setting project-wide coding standards, AI assistant behavior, collaboration rules, and repository workflow expectations."
 ---
 
 # General Instructions
@@ -12,10 +12,13 @@ description: 'Use when setting project-wide coding standards, AI assistant behav
 - Prefer simplicity and readability over cleverness.
 - Regex only when necessary; comment what it matches and why.
 - Small duplication is fine if it is clearer.
-- Nesting depth ≤ 3.
 - New dependencies only when necessary: well-maintained, widely used, permissive license.
 - Don't write unit tests unless asked.
 - Code is the source of truth. Update docs/comments that disagree with it.
+
+## Git
+
+- Never add a co-author to commits.
 
 ## GitHub issues
 
