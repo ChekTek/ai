@@ -36,7 +36,7 @@ Use `--provider github-copilot`. Match the model and thinking level to the task:
 3. Run:
 
    ```bash
-   pi -p --no-session --no-extensions --no-skills --no-prompt-templates -a \
+   pi -p --no-session -a \
      --provider github-copilot --model <id> --thinking <level> \
      "Task: <prompt>"
    ```

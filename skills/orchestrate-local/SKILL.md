@@ -21,7 +21,7 @@ model family. Use `orchestrate` instead.
 3. Run:
 
    ```bash
-   pi -p --no-session --no-extensions --no-skills --no-prompt-templates -a \
+   pi -p --no-session -a \
      --provider ollama --model qwen3.8:latest --thinking high \
      "Task: <prompt>"
    ```
