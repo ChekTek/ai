@@ -48,7 +48,7 @@ then fresh reviewers. Use one fix worker if review finds problems.
 4. Run each child:
 
    ```bash
-   pi -p --no-session --no-extensions --no-skills --no-prompt-templates -a \
+   pi -p --no-session -a \
      --provider github-copilot --model <id> --thinking <level> \
      --tools <role-tools> --append-system-prompt "<role line>" \
      "Task: <prompt>"
