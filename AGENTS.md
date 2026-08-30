@@ -15,8 +15,8 @@ Edit `rules/`, `skills/`, `pi/`, and `scripts/`, not published files under
 - Validate sources before publishing anything.
 - Preserve existing frontmatter conventions. `metadata.targets`, when present,
   must contain unique values from `claude`, `copilot`, `pi`, and `codex`.
-- Pi extensions, themes, and keybindings are Pi-only. Keep extension entry
-  points compatible with Pi and `pi-acp` without duplicate registration.
+- Pi packages, themes, and keybindings are Pi-only. Keep package extension
+  entry points compatible with Pi and `pi-acp` without duplicate registration.
 
 ## Workflow
 

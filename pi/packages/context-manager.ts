@@ -166,14 +166,21 @@ function listGitFiles(projectRoot: string): string[] | undefined {
 }
 
 /** Recursively lists project files when Git discovery is unavailable. */
-function listDirectoryFiles(projectRoot: string, directory = projectRoot): string[] {
-	const files: string[] = [];
-	for (const entry of readdirSync(directory, { withFileTypes: true })) {
-		if (entry.isDirectory() && IGNORED_DIRECTORIES.has(entry.name)) continue;
+function listDirectoryFiles(projectRoot: string, directory = projectRoot, files: string[] = []): string[] {
+	let entries;
+	try {
+		entries = readdirSync(directory, { withFileTypes: true });
+	} catch {
+		return files;
+	}
+	for (const entry of entries) {
+		// Symlinks and Windows junctions can cycle back into ancestors.
+		if (entry.isSymbolicLink()) continue;
 
 		const entryPath = resolve(directory, entry.name);
 		if (entry.isDirectory()) {
-			files.push(...listDirectoryFiles(projectRoot, entryPath));
+			if (IGNORED_DIRECTORIES.has(entry.name)) continue;
+			listDirectoryFiles(projectRoot, entryPath, files);
 		} else if (entry.isFile()) {
 			files.push(portableRelativePath(projectRoot, entryPath));
 		}
