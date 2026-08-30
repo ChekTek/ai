@@ -1,7 +1,7 @@
 # AI Configuration
 
 Shared rules and skills for **Claude Code**, **GitHub Copilot**, **Pi**, and
-**OpenAI Codex**, plus Pi extensions and preferences.
+**OpenAI Codex**, plus Pi packages and preferences.
 
 ## Publish
 
@@ -17,6 +17,12 @@ On Windows, run from PowerShell with symlink support:
 .\scripts\update-config-win.ps1
 ```
 
+Or from Git Bash on Windows (forces real symlinks instead of copies):
+
+```bash
+./scripts/update-config-win.sh
+```
+
 Publishing is additive. Use `--clean` or Windows `-Clean` to clear managed
 destinations first; this can delete files not owned by this repository.
 
@@ -24,7 +30,7 @@ destinations first; this can delete files not owned by this repository.
 
 - `rules/` — shared instructions
 - `skills/` — reusable skills
-- `pi/` — Pi extensions, themes, and keybindings
+- `pi/` — Pi packages, themes, and keybindings
 - `scripts/` — validation and publishing
 
 These are the canonical sources; do not edit their published copies. Rules and
