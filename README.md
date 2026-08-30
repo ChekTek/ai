@@ -17,6 +17,12 @@ On Windows, run from PowerShell with symlink support:
 .\scripts\update-config-win.ps1
 ```
 
+Or from Git Bash on Windows (forces real symlinks instead of copies):
+
+```bash
+./scripts/update-config-win.sh
+```
+
 Publishing is additive. Use `--clean` or Windows `-Clean` to clear managed
 destinations first; this can delete files not owned by this repository.
 
