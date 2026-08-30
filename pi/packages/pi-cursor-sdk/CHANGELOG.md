@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Register cached or bundled fallback Cursor models without waiting for network discovery, refresh the live catalog after session startup, and bound live discovery requests to five seconds.
+
 ## 0.3.3 - 2026-08-14
 
 ### Changed

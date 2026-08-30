@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ProviderConfig, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
-import { discoverModels, type CursorModelFallbackIssue } from "./model-discovery.js";
+import { discoverModels, loadStartupModels, type CursorModelFallbackIssue } from "./model-discovery.js";
 import { registerCursorRuntimeControls } from "./cursor-state.js";
 import { registerCursorNativeToolDisplay } from "./cursor-native-tool-display-registration.js";
 import { registerCursorPiToolBridge } from "./cursor-pi-tool-bridge.js";
@@ -64,16 +64,42 @@ export default async function (pi: CursorExtensionApi) {
 	registerCursorPiToolBridge(pi);
 	registerCursorAgentsContextDedup(pi);
 	registerCursorOverflowNormalization(pi);
-	let fallbackIssue: CursorModelFallbackIssue | undefined;
-	const models = await discoverModels({
-		onFallback: (issue) => {
-			fallbackIssue = issue;
-		},
-	});
 
-	if (fallbackIssue) {
-		registerCursorFallbackIssueWarning(pi, fallbackIssue);
-	}
+	// Provider registration must not wait for the network. A fresh disk cache is
+	// preferred, otherwise the bundled catalog keeps Cursor selectable at startup.
+	const startupModels = await loadStartupModels();
+	registerCursorProvider(pi, startupModels);
+
+	let backgroundRefreshStarted = false;
+	let fallbackWarningRegistered = false;
+	let sessionActive = false;
+	pi.on("session_start", () => {
+		sessionActive = true;
+		if (backgroundRefreshStarted) return;
+		backgroundRefreshStarted = true;
+		const refreshModels = async () => {
+			let fallbackIssue: CursorModelFallbackIssue | undefined;
+			try {
+				const models = await discoverModels({
+					onFallback: (issue) => {
+						fallbackIssue = issue;
+					},
+				});
+				if (!sessionActive) return;
+				registerCursorProvider(pi, models);
+				if (fallbackIssue && !fallbackWarningRegistered) {
+					fallbackWarningRegistered = true;
+					registerCursorFallbackIssueWarning(pi, fallbackIssue);
+				}
+			} catch (error) {
+				console.error("Cursor model catalog background refresh failed", error);
+			}
+		};
+		refreshModels();
+	});
+	pi.on("session_shutdown", () => {
+		sessionActive = false;
+	});
 
 	pi.registerCommand("cursor-refresh-models", {
 		description: "Refresh the live Cursor model catalog without restarting pi",
@@ -97,7 +123,6 @@ export default async function (pi: CursorExtensionApi) {
 		},
 	});
 
-	registerCursorProvider(pi, models);
 	// Register last so session_shutdown cleanup remains protected until other Cursor handlers finish.
 	registerCursorSdkSessionProcessErrorGuard(pi);
 }

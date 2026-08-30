@@ -139,11 +139,11 @@ One-shot setup:
 pi --api-key "your-key" --model cursor/composer-2-5 --cursor-no-fast -p "Say ok only."
 ```
 
-Startup discovery intentionally does not parse Pi CLI arguments. It uses the stored `cursor` key in `~/.pi/agent/auth.json`, then `CURSOR_API_KEY`; without either, the bundled fallback catalog registers. Provider turns still receive Pi's resolved `--api-key`. `/cursor-refresh-models` and `/cursor-cloud` mutations ask Pi's ModelRegistry for provider `cursor`, so command-time auth follows Pi's provider-scoped resolution and is normalized through `CURSOR_API_KEY` placeholders before reaching the Cursor SDK.
+Startup registration intentionally does not parse Pi CLI arguments or wait for the network. It immediately uses a fresh cached catalog when available, otherwise the bundled fallback catalog, then refreshes discovery in the background using the stored `cursor` key in `~/.pi/agent/auth.json` or `CURSOR_API_KEY`. Provider turns still receive Pi's resolved `--api-key`. `/cursor-refresh-models` and `/cursor-cloud` mutations ask Pi's ModelRegistry for provider `cursor`, so command-time auth follows Pi's provider-scoped resolution and is normalized through `CURSOR_API_KEY` placeholders before reaching the Cursor SDK.
 
 ### Model catalog cache
 
-To avoid a live `Cursor.models.list` network round-trip on every pi startup, the discovered catalog is cached on disk at `~/.pi/agent/cursor-sdk-model-list.json` (written `0600`, keyed by an API-key fingerprint — the key itself is never stored). Warm startups within the cache TTL skip the network call and avoid loading `@cursor/sdk` until a Cursor turn needs it; `/cursor-refresh-models` always bypasses the cache and refreshes the live catalog. If a refresh fails, a previously cached catalog is preferred over the generic bundled fallback.
+To avoid a live `Cursor.models.list` network round-trip on every pi startup, the discovered catalog is cached on disk at `~/.pi/agent/cursor-sdk-model-list.json` (written `0600`, keyed by an API-key fingerprint — the key itself is never stored). Startup never waits for `Cursor.models.list`: warm starts use the fresh cache, cold or expired starts register the bundled fallback, and live discovery runs after session startup with a five-second timeout. `/cursor-refresh-models` always bypasses the cache and performs the same bounded live refresh. If a refresh fails, a previously cached catalog is preferred over the generic bundled fallback.
 
 ```bash
 # Cache lifetime in milliseconds (default 86400000 = 24h).
@@ -524,7 +524,7 @@ See [Cursor testing lessons](docs/cursor-testing-lessons.md#cursor-sdk-event-cap
 
 ## Fallback models
 
-If startup has no stored `/login` key or `CURSOR_API_KEY`, model discovery fails, or discovery returns no models, the extension registers a bundled fallback snapshot of the latest reviewed Cursor SDK model catalog and notifies interactive users when possible. Pi CLI `--api-key` remains available to provider turns but is not parsed independently during startup discovery.
+If startup has no fresh cached catalog, the extension immediately registers a bundled fallback snapshot of the latest reviewed Cursor SDK model catalog. Background discovery replaces it when successful; if no stored `/login` key or `CURSOR_API_KEY` exists, discovery fails, times out, or returns no models, the fallback remains active and the extension notifies interactive users when possible. Pi CLI `--api-key` remains available to provider turns but is not parsed independently during startup discovery.
 
 The fallback snapshot includes Composer 2.5 (`composer-2.5` and `composer-2-5`), Composer 2, Cursor's GPT-5.6 Luna/Sol/Terra models, Claude, Gemini, Grok, Kimi, and other model IDs exposed by the reviewed `Cursor.models.list()` output. Pi's separate `openai-codex` catalog is owned by Pi itself; Pi 0.84.0 includes native `gpt-5.6-luna`, `gpt-5.6-sol`, and `gpt-5.6-terra` support. The exact checked-in Cursor snapshot lives in `src/cursor-fallback-models.generated.ts`. A dated maintainer capture documents the assistant-visible [Cursor system prompts and tool guidance](https://github.com/fitchmultz/pi-cursor-sdk/blob/main/docs/evidence/cursor-system-prompts-2026-08-02/README.md) for Grok 4.5, Opus 5, Fable 5, and the GPT-5.6 Sol/Terra/Luna family.
 
