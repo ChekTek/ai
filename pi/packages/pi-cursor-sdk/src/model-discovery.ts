@@ -21,6 +21,7 @@ import {
 
 const FALLBACK_CONTEXT_WINDOW = 128000;
 const FALLBACK_MAX_TOKENS = 16384;
+const DEFAULT_DISCOVERY_TIMEOUT_MS = 5000;
 const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 const TEXT_AND_IMAGE_INPUT: ProviderModelConfig["input"] = ["text", "image"];
 const AUTH_SETUP_HINT = "/login (Cursor browser or API key) or CURSOR_API_KEY; startup discovery does not parse Pi CLI arguments, and Cursor Agent CLI/Desktop login is not reused";
@@ -38,6 +39,8 @@ export interface CursorModelFallbackIssue {
 export interface DiscoverModelsOptions {
 	onFallback?: (issue: CursorModelFallbackIssue) => void;
 	apiKey?: string;
+	/** Maximum time to wait for the live Cursor catalog. */
+	discoveryTimeoutMs?: number;
 	// Bypass the on-disk model cache and always hit the live catalog. Used by the
 	// /cursor-refresh-models command; the startup path leaves this false so warm
 	// boots skip the slow network round-trip.
@@ -365,8 +368,20 @@ function sanitizeDiscoveryError(error: unknown, apiKey: string): string | undefi
 
 async function useFallbackModels(options: DiscoverModelsOptions, issue: CursorModelFallbackIssue): Promise<ProviderModelConfig[]> {
 	options.onFallback?.(issue);
+	return await loadFallbackModels();
+}
+
+async function loadFallbackModels(): Promise<ProviderModelConfig[]> {
 	const { FALLBACK_MODEL_ITEMS } = await import("./cursor-fallback-models.generated.js");
 	return registerModelItems(FALLBACK_MODEL_ITEMS);
+}
+
+/** Loads a fresh cached catalog or the bundled fallback without doing network I/O. */
+export async function loadStartupModels(): Promise<ProviderModelConfig[]> {
+	const cachedModels = loadFreshCachedModelsIgnoringKey();
+	return cachedModels && cachedModels.length > 0
+		? registerModelItems(cachedModels)
+		: await loadFallbackModels();
 }
 
 export async function discoverModels(options: DiscoverModelsOptions = {}): Promise<ProviderModelConfig[]> {
@@ -391,7 +406,21 @@ export async function discoverModels(options: DiscoverModelsOptions = {}): Promi
 
 	try {
 		const { Cursor } = await loadCursorSdk();
-		const models = await Cursor.models.list({ apiKey });
+		const timeoutMs = options.discoveryTimeoutMs ?? DEFAULT_DISCOVERY_TIMEOUT_MS;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<never>((_resolve, reject) => {
+			timeoutId = setTimeout(
+				() => reject(new Error(`Cursor model discovery timed out after ${timeoutMs}ms`)),
+				Math.max(0, timeoutMs),
+			);
+			timeoutId.unref?.();
+		});
+		let models: ModelListItem[];
+		try {
+			models = await Promise.race([Cursor.models.list({ apiKey }), timeout]);
+		} finally {
+			if (timeoutId) clearTimeout(timeoutId);
+		}
 		if (models.length > 0) {
 			saveModelListCache(keyFingerprint, models);
 			return registerModelItems(models);

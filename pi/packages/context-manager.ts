@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFile as execFileCallback } from "node:child_process";
 import {
 	existsSync,
 	readdirSync,
@@ -6,7 +6,9 @@ import {
 	renameSync,
 	writeFileSync,
 } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { matchesGlob, relative, resolve, sep } from "node:path";
+import { promisify } from "node:util";
 
 import {
 	estimateTokens,
@@ -139,37 +141,43 @@ function saveConfig(config: ContextManagerConfig): void {
 	renameSync(temporaryPath, CONFIG_PATH);
 }
 
-/** Finds the Git root containing a working directory. */
-function findProjectRoot(cwd: string): string {
+const execFile = promisify(execFileCallback);
+
+/** Finds the Git root containing a working directory without blocking the event loop. */
+async function findProjectRoot(cwd: string): Promise<string> {
 	try {
-		return execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], {
+		const { stdout } = await execFile("git", ["-C", cwd, "rev-parse", "--show-toplevel"], {
 			encoding: "utf8",
-			stdio: ["ignore", "pipe", "ignore"],
-		}).trim();
+		});
+		return stdout.trim();
 	} catch {
 		return cwd;
 	}
 }
 
 /** Lists tracked and untracked, non-ignored project files. */
-function listGitFiles(projectRoot: string): string[] | undefined {
+async function listGitFiles(projectRoot: string): Promise<string[] | undefined> {
 	try {
-		const output = execFileSync(
+		const { stdout } = await execFile(
 			"git",
 			["-C", projectRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-			{ encoding: "utf8", maxBuffer: 20 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] },
+			{ encoding: "utf8", maxBuffer: 20 * 1024 * 1024 },
 		);
-		return output.split("\0").filter(Boolean);
+		return stdout.split("\0").filter(Boolean);
 	} catch {
 		return undefined;
 	}
 }
 
 /** Recursively lists project files when Git discovery is unavailable. */
-function listDirectoryFiles(projectRoot: string, directory = projectRoot, files: string[] = []): string[] {
+async function listDirectoryFiles(
+	projectRoot: string,
+	directory = projectRoot,
+	files: string[] = [],
+): Promise<string[]> {
 	let entries;
 	try {
-		entries = readdirSync(directory, { withFileTypes: true });
+		entries = await readdir(directory, { withFileTypes: true });
 	} catch {
 		return files;
 	}
@@ -180,7 +188,7 @@ function listDirectoryFiles(projectRoot: string, directory = projectRoot, files:
 		const entryPath = resolve(directory, entry.name);
 		if (entry.isDirectory()) {
 			if (IGNORED_DIRECTORIES.has(entry.name)) continue;
-			listDirectoryFiles(projectRoot, entryPath, files);
+			await listDirectoryFiles(projectRoot, entryPath, files);
 		} else if (entry.isFile()) {
 			files.push(portableRelativePath(projectRoot, entryPath));
 		}
@@ -189,9 +197,10 @@ function listDirectoryFiles(projectRoot: string, directory = projectRoot, files:
 }
 
 /** Lists project-relative files used to evaluate rule globs. */
-function listProjectFiles(cwd: string): string[] {
-	const projectRoot = findProjectRoot(cwd);
-	return listGitFiles(projectRoot) ?? listDirectoryFiles(projectRoot);
+async function listProjectFiles(cwd: string): Promise<string[]> {
+	const projectRoot = await findProjectRoot(cwd);
+	const gitFiles = await listGitFiles(projectRoot);
+	return gitFiles ?? await listDirectoryFiles(projectRoot);
 }
 
 /** Returns whether a path matches a rule glob, logging invalid patterns. */
@@ -262,13 +271,14 @@ function applySkillVisibility(
 }
 
 /** Builds table rows describing all context visible to the model. */
-function buildContextItems(
+async function buildContextItems(
 	pi: ExtensionAPI,
 	ctx: ExtensionCommandContext,
 	config: ContextManagerConfig,
 	rules: Rule[],
-): SettingItem[] {
-	const projectFiles = listProjectFiles(ctx.cwd);
+	getProjectFiles: (cwd: string) => Promise<string[]>,
+): Promise<SettingItem[]> {
+	const projectFiles = await getProjectFiles(ctx.cwd);
 	const options = ctx.getSystemPromptOptions();
 	const activeRules: Rule[] = [];
 	const ruleItems: SettingItem[] = [];
@@ -498,6 +508,24 @@ async function showSettings(
 export default function contextManagerExtension(pi: ExtensionAPI): void {
 	let config = loadConfig();
 	let rules = loadRules();
+	const projectFilesByCwd = new Map<string, Promise<string[]>>();
+	let matchingRulePaths = new Set<string>();
+	const getProjectFiles = (cwd: string): Promise<string[]> => {
+		const cached = projectFilesByCwd.get(cwd);
+		if (cached) return cached;
+		const pending = listProjectFiles(cwd);
+		projectFilesByCwd.set(cwd, pending);
+		return pending;
+	};
+	const refreshRuleMatches = async (cwd: string): Promise<string[]> => {
+		const projectFiles = await getProjectFiles(cwd);
+		matchingRulePaths = new Set(
+			rules
+				.filter((rule) => ruleMatchesProject(rule, projectFiles))
+				.map((rule) => rule.relativePath),
+		);
+		return projectFiles;
+	};
 
 	pi.registerCommand("context", {
 		description: "Inspect model context sources and estimated sizes",
@@ -508,7 +536,8 @@ export default function contextManagerExtension(pi: ExtensionAPI): void {
 			}
 
 			rules = loadRules();
-			const items = buildContextItems(pi, ctx, config, rules);
+			await refreshRuleMatches(ctx.cwd);
+			const items = await buildContextItems(pi, ctx, config, rules, getProjectFiles);
 			await showSettings("Context", items, () => {}, ctx, true);
 		},
 	});
@@ -517,7 +546,7 @@ export default function contextManagerExtension(pi: ExtensionAPI): void {
 		description: "Enable or disable conditional rule files",
 		handler: async (_args, ctx) => {
 			rules = loadRules();
-			const projectFiles = listProjectFiles(ctx.cwd);
+			const projectFiles = await refreshRuleMatches(ctx.cwd);
 			const items: SettingItem[] = rules.map((rule) => {
 				const matches = ruleMatchesProject(rule, projectFiles);
 				const matchDescription = matches ? "active in this project" : "no matching project paths";
@@ -572,15 +601,16 @@ export default function contextManagerExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.on("session_start", () => {
+	pi.on("session_start", async (_event, ctx) => {
 		config = loadConfig();
 		rules = loadRules();
+		projectFilesByCwd.clear();
+		await refreshRuleMatches(ctx.cwd);
 	});
 
-	pi.on("before_agent_start", (event, ctx) => {
-		const projectFiles = listProjectFiles(ctx.cwd);
+	pi.on("before_agent_start", (event) => {
 		const activeRules = rules.filter(
-			(rule) => isRuleEnabled(rule, config) && ruleMatchesProject(rule, projectFiles),
+			(rule) => isRuleEnabled(rule, config) && matchingRulePaths.has(rule.relativePath),
 		);
 		const promptWithSelectedSkills = applySkillVisibility(event.systemPrompt, event.systemPromptOptions, config);
 		return { systemPrompt: `${promptWithSelectedSkills}${formatRules(activeRules)}` };
