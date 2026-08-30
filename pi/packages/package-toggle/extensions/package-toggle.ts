@@ -61,12 +61,7 @@ function toggled(entry: PackageSource, scope: Scope, cwd: string): PackageSource
 	const path = stashPath(scope, cwd);
 	const stash = readStash(path);
 
-	if (isOff(entry)) {
-		const restored = stash[source] ?? source;
-		delete stash[source];
-		writeStash(path, stash);
-		return restored;
-	}
+	if (isOff(entry)) return stash[source] ?? source;
 
 	if (typeof entry !== "string") {
 		stash[source] = entry;
@@ -129,10 +124,18 @@ async function listRows(settings: SettingsManager, manager: DefaultPackageManage
 async function applyPackageToggle(settings: SettingsManager, row: PackageRow, cwd: string): Promise<void> {
 	const scoped = row.scope === "global" ? settings.getGlobalSettings() : settings.getProjectSettings();
 	const list = [...(scoped.packages ?? [])];
+	const enabling = isOff(row.entry);
 	list[row.index] = toggled(row.entry, row.scope, cwd);
 	if (row.scope === "global") settings.setPackages(list);
 	else settings.setProjectPackages(list);
 	await settings.flush();
+
+	if (enabling) {
+		const path = stashPath(row.scope, cwd);
+		const stash = readStash(path);
+		delete stash[sourceOf(row.entry)];
+		writeStash(path, stash);
+	}
 }
 
 /** True when an override pattern (+path or -path) targets this extension row. */
@@ -288,7 +291,9 @@ export default function packageToggleExtension(pi: ExtensionAPI): void {
 					return;
 				}
 				if (words.length === 0 || (words[0] === "list" && words.length === 1)) {
-					ctx.ui.notify(renderList(await listRows(settings, manager)), "info");
+					const list = renderList(await listRows(settings, manager));
+					if (ctx.hasUI) ctx.ui.notify(list, "info");
+					else console.log(list);
 					return;
 				}
 				if ((words[0] === "on" || words[0] === "off") && words.length === 2) {
