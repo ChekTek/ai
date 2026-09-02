@@ -54,7 +54,8 @@ approval before writing anything.
 ## 5. Update the issue
 
 Write the approved body to a temp file and apply it with
-`gh issue edit <ref> --body-file <file>` (add `--title` if it changed).
+`gh issue edit <ref> --body-file <file>` (add `--title` if it changed). When
+useful local media is available, offer to include it with `--attach`.
 
 Remove `needs refinement` if present; add `needs review` (create the label if needed, per general rules):
 

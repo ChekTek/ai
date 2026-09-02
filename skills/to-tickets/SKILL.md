@@ -56,6 +56,7 @@ is visible to others, so get explicit approval before creating anything.
 
 Use `gh issue create` for each approved ticket. Always add `needs review`
 (create the label if needed, per general rules). Reference blocking tickets
-in the body (e.g. "Depends on #12").
+in the body (e.g. "Depends on #12"). When useful local media is available,
+offer to include it with `--attach`.
 
 After creation, report the created issue URLs in dependency order.
