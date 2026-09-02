@@ -23,11 +23,11 @@ gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository
 
 ## 2. Build the feedback list
 
-One review thread = one item; replies are context. Add actionable requests from review summaries and discussion. Skip resolved threads, plain approvals, and bot noise unless it asks for a concrete change. Outdated threads may still be valid.
+One review thread = one item; replies are context, not proof. Add actionable requests from review summaries and discussion. Skip resolved threads, plain approvals, and bot noise unless it asks for a concrete change. Outdated threads may still be valid.
 
 ## 3. Address each item
 
-Apply address-pr-feedback to each item (file/line + comments as the feedback). Skip that skill's GitHub prompt; ask once in step 5. If the skill is not loaded, read `../address-pr-feedback/SKILL.md`.
+Apply address-pr-feedback to each item (file/line + comments as the feedback). Validate each item independently and do not change code unless it represents a plausible real-world issue. Skip that skill's GitHub prompt; ask once in step 5. If the skill is not loaded, read `../address-pr-feedback/SKILL.md`.
 
 Don't narrate between items. Keep every fix local until the prompt.
 
