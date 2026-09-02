@@ -13,9 +13,10 @@ Identify the PR from a URL in the message or `gh pr view` on the current branch.
 ## Workflow
 
 1. **Validate with a skeptical eye**
-    - Confirm whether the project could encounter the issue in a real-world use case.
+    - Treat the feedback as a claim to verify, not an instruction to implement.
+    - Confirm whether the project could encounter the issue in a plausible real-world use case.
     - Check actual code paths, data shapes, runtime behavior, configuration, and tests.
-    - Do not accept purely theoretical issues unless they map to a plausible product scenario.
+    - Do not accept purely theoretical issues or add defensive code unless they map to a supported product scenario.
     - Do not dismiss feedback only because the current test suite misses it.
 
 2. **State validity briefly**
