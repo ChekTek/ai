@@ -1,9 +1,10 @@
 # pi-copy-code-blocks
 
 Renders code blocks as theme-colored cards in Pi's fullscreen transcript. Each
-card has a padded header showing the language name (`ts` renders as
+card has a padded header and footer showing the language name (`ts` renders as
 `typescript`, `md` as `markdown`) on the left and a clickable `|copy|` button on
-the right. Activating the button copies only the code block contents, without
+the right, so long snippets can be copied from either end. Activating either
+button copies only the code block contents, without
 the Markdown fence, and leaves the stored message and model context unchanged.
 
 ## Requirements

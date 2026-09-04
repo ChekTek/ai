@@ -130,7 +130,7 @@ function createCopyHook(tui: TUI, ctx: ExtensionContext, codeByToken: ReadonlyMa
 	};
 }
 
-/** Renders a theme-colored code card with a language label and copy button in its header. */
+/** Renders a theme-colored code card with language and copy controls at both ends. */
 function renderCodeCard(
 	markdown: MarkdownInternals,
 	token: Tokens.Code,
@@ -144,19 +144,22 @@ function renderCodeCard(
 		? markdown.theme.highlightCode(token.text, token.lang)
 		: token.text.split("\n").map((line) => markdown.theme.codeBlock(line));
 	const codeLines = highlightedLines.flatMap((line) => wrapTextWithAnsi(line, codeWidth));
+	const controls = applyCodeBackground(renderControls(token.lang, width, sidePadding, url, theme), width, theme);
 	const lines = [applyCodeBackground("", width, theme)];
 
-	lines.push(applyCodeBackground(renderHeader(token.lang, width, sidePadding, url, theme), width, theme));
+	lines.push(controls);
 	lines.push(applyCodeBackground("", width, theme));
 	for (const codeLine of codeLines) {
 		lines.push(applyCodeBackground(`${" ".repeat(sidePadding)}${codeLine}`, width, theme));
 	}
 	lines.push(applyCodeBackground("", width, theme));
+	lines.push(controls);
+	lines.push(applyCodeBackground("", width, theme));
 	return lines;
 }
 
 /** Lays out the language name on the left and the copy button on the right. */
-function renderHeader(
+function renderControls(
 	lang: string | undefined,
 	width: number,
 	sidePadding: number,
