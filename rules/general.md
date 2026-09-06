@@ -19,6 +19,7 @@ description: "Use when setting project-wide coding standards, AI assistant behav
 ## Git
 
 - Never add a co-author to commits.
+- Local and remote branches should be named the same and created at the same time.
 
 ## GitHub issues
 
