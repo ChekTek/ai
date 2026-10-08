@@ -1,7 +1,7 @@
 # Repository Guide
 
 This repository is the source of truth for shared assistant configuration.
-Edit `rules/`, `skills/`, `pi/`, and `scripts/`, not published files under
+Edit `rules/`, `skills/`, `pi/`, `claude/`, and `scripts/`, not published files under
 `~/.claude`, `~/.copilot`, `~/.pi`, or `~/.codex`.
 
 ## Requirements
@@ -17,6 +17,9 @@ Edit `rules/`, `skills/`, `pi/`, and `scripts/`, not published files under
   must contain unique values from `claude`, `copilot`, `pi`, and `codex`.
 - Pi packages, themes, and keybindings are Pi-only. Keep package extension
   entry points compatible with Pi and `pi-acp` without duplicate registration.
+- Claude settings are deep-merged into `~/.claude/settings.json`, never linked
+  or replaced, because Claude Code writes its own keys there. Clean mode leaves
+  that file alone.
 
 ## Workflow
 
