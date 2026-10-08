@@ -18,7 +18,7 @@ description: "Use when setting project-wide coding standards, AI assistant behav
 
 ## Git
 
-- Never add a co-author to commits.
+- Never add AI attribution (e.g. "Generated with Claude Code") to commits, PRs, issues, or comments.
 
 ## GitHub issues
 
