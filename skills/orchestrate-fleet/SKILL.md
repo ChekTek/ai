@@ -17,7 +17,6 @@ parent's family.
 
 - Claude parent → GPT children
 - GPT parent → Claude children
-- Grok parent → GPT children
 - Any other parent family → GPT children
 
 Use GitHub Copilot and the same model tiers as `orchestrate`: GPT

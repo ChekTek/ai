@@ -1,13 +1,15 @@
 # Repository Guide
 
 This repository is the source of truth for shared assistant configuration.
-Edit `rules/`, `skills/`, `pi/`, and `scripts/`, not published files under
-`~/.claude`, `~/.copilot`, `~/.pi`, or `~/.codex`.
+Edit `rules/`, `skills/`, `claude/`, `pi/`, and `scripts/`, not published
+files under `~/.claude`, `~/.copilot`, `~/.pi`, or `~/.codex`.
 
 ## Requirements
 
 - Keep the Unix and Windows publishing scripts behaviorally equivalent.
 - Publishing must remain additive and preserve unmanaged configuration.
+- `claude/settings.json` is merged into `~/.claude/settings.json` by top-level
+  key. Managed keys replace, unmanaged keys stay.
 - Never overwrite an unmanaged Codex `AGENTS.md`.
 - Clean mode may remove unrelated files from managed directories. Preserve
   Codex's `skills/.system` and remove generated `AGENTS.md` files only when the

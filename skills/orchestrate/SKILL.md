@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: "Delegate coding work to one Pi child on GitHub Copilot in a different model family. Use when you want a cross-family worker; route Claude parents to GPT, GPT parents to Claude, and Grok parents to GPT."
+description: "Delegate coding work to one Pi child on GitHub Copilot in a different model family. Use when you want a cross-family worker; route Claude parents to GPT and GPT parents to Claude."
 argument-hint: "[task or goal]"
 disable-model-invocation: true
 ---
@@ -17,7 +17,6 @@ the parent.
 
 - Claude parent → GPT worker
 - GPT parent → Claude worker
-- Grok parent → GPT worker
 - Any other parent family → GPT worker
 
 Use `--provider github-copilot`. Match the model and thinking level to the task:
