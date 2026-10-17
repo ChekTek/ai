@@ -52,7 +52,6 @@ else {
 }
 $CodexSkillsDest = Join-Path $CodexRoot 'skills'
 $CodexRulesDest = Join-Path $CodexRoot 'AGENTS.md'
-$LegacyPiCursorSdkPackage = 'git:github.com/fitchmultz/pi-cursor-sdk'
 
 function Get-TargetMetadata {
     param([string] $Path)
@@ -538,26 +537,6 @@ function Publish-PiPackages {
     }
 }
 
-function Remove-LegacyPiCursorSdkPackage {
-    $settingsPath = Join-Path $HOME '.pi\agent\settings.json'
-    if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) { return }
-
-    $settingsText = Get-Content -LiteralPath $settingsPath -Raw
-    if ($settingsText -notlike "*${LegacyPiCursorSdkPackage}*") { return }
-
-    if (-not (Get-Command pi -ErrorAction SilentlyContinue)) {
-        Write-Host "skip removing ${LegacyPiCursorSdkPackage}: pi is not on PATH"
-        Write-Host "remove that package from $settingsPath before starting Pi so Cursor does not load twice"
-        return
-    }
-
-    & pi remove $LegacyPiCursorSdkPackage
-    if ($LASTEXITCODE -ne 0) {
-        throw "failed to remove $LegacyPiCursorSdkPackage"
-    }
-    Write-Host "removed package: $LegacyPiCursorSdkPackage"
-}
-
 function Get-RelativePath {
     param(
         [string] $Root,
@@ -865,7 +844,6 @@ Publish-Skills $CopilotSkillsDest 'copilot/skills' 'copilot'
 Publish-Skills $PiSkillsDest 'pi/skills' 'pi'
 Publish-Skills $CodexSkillsDest 'codex/skills' 'codex'
 Publish-PiPackages
-Remove-LegacyPiCursorSdkPackage
 Publish-PiThemes
 Publish-PiKeybindings
 Publish-Rules $ClaudeRulesDest 'claude/rules' 'claude'

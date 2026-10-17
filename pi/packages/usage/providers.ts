@@ -12,8 +12,6 @@ export async function fetchUsage(ctx: ExtensionCommandContext, signal: AbortSign
 		}
 		case "github-copilot":
 			return copilotUsage(ctx, signal);
-		case "cursor":
-			return cursorUsage(signal);
 		case "openai":
 			return { title: "OpenAI API", rows: [], notes: [
 				"API billing is separate from ChatGPT/Codex subscription quotas.",
@@ -144,46 +142,6 @@ async function copilotUsage(ctx: ExtensionCommandContext, signal: AbortSignal): 
 	return { title: `GitHub Copilot · ${text(data.copilot_plan) ?? "plan not reported"}`, rows, notes };
 }
 
-async function cursorUsage(signal: AbortSignal): Promise<UsageReport> {
-	const cookie = process.env.CURSOR_USAGE_COOKIE?.trim();
-	if (!cookie) {
-		return { title: "Cursor", rows: [], notes: [
-			"Cursor SDK API keys cannot read dashboard quotas.",
-			"Set CURSOR_USAGE_COOKIE to your cursor.com session Cookie header, then restart Pi.",
-			"Use the same account as Pi's Cursor login. No browser credentials are read automatically.",
-			"Dashboard: https://cursor.com/dashboard?tab=usage",
-		] };
-	}
-	const data = await request("https://cursor.com/api/usage-summary", safeHeaders({ Cookie: cookie, Accept: "application/json" }), signal);
-	const individual = object(data.individualUsage);
-	const plan = object(individual.plan);
-	const resetAt = date(data.billingCycleEnd);
-	const rows: UsageRow[] = [];
-	for (const [key, label] of [["autoPercentUsed", "Cursor models (Auto/Composer)"], ["apiPercentUsed", "Other models"], ["totalPercentUsed", "Total included usage"]]) {
-		const used = number(plan[key]);
-		if (used !== undefined) rows.push({ label, remaining: 100 - used, resetAt });
-	}
-	for (const [label, value] of [
-		["Included plan", plan], ["On-demand (individual)", individual.onDemand],
-		["Personal cap", individual.overall], ["Team pool", object(data.teamUsage).pooled],
-	] as const) {
-		const budget = object(value);
-		const used = number(budget.used);
-		const limit = number(budget.limit);
-		if (budget.enabled === false || used === undefined) continue;
-		rows.push({
-			label,
-			remaining: limit !== undefined && limit > 0 ? 100 * (1 - used / limit) : undefined,
-			detail: `$${(used / 100).toFixed(2)} used / ${limit === undefined ? "cap not reported" : `$${(limit / 100).toFixed(2)}`}`,
-			resetAt,
-		});
-	}
-	return { title: `Cursor · ${text(data.membershipType) ?? "plan not reported"}`, rows, notes: [
-		"Source: configured dashboard cookie (account is not verified against Pi's SDK key).",
-		"Team pool is shared; on-demand spending is separate from included usage.",
-	] };
-}
-
 function codexReport(data: Record<string, unknown>): UsageReport {
 	const rows: UsageRow[] = [];
 	const addWindows = (label: string, value: unknown) => {
@@ -224,7 +182,7 @@ function safeHeaders(values: Record<string, string>) {
 		return new Headers(values);
 	} catch {
 		// Headers errors can quote the offending value, including a token or cookie.
-		throw new Error("Invalid usage authentication headers. Reauthenticate or check CURSOR_USAGE_COOKIE.");
+		throw new Error("Invalid usage authentication headers. Reauthenticate and try again.");
 	}
 }
 
