@@ -33,6 +33,7 @@ LEGACY_PI_CURSOR_SDK_PACKAGE="git:github.com/fitchmultz/pi-cursor-sdk"
 
 CLEAN=0
 ASSUME_YES=0
+SKILL_DIRS=()
 
 usage() {
   cat <<'USAGE'
@@ -194,6 +195,27 @@ has_target() {
   '
 }
 
+# Grouping directories may nest freely. Stop at each skill root so bundled
+# references, scripts, and assets are never treated as separate skills.
+discover_skills() {
+  local directory="$1" entry
+  for entry in "$directory"/*; do
+    [ -e "$entry" ] || continue
+    if [ -f "$entry" ] && [ "$(basename "$entry")" = "README.md" ]; then
+      continue
+    fi
+    if [ ! -d "$entry" ]; then
+      echo "invalid skill source: $entry must be a skill or grouping directory" >&2
+      return 1
+    fi
+    if [ -f "$entry/SKILL.md" ]; then
+      SKILL_DIRS+=("$entry")
+    else
+      discover_skills "$entry"
+    fi
+  done
+}
+
 validate_sources() {
   [ -d "$RULES_SRC" ] || { echo "missing source directory: $RULES_SRC" >&2; exit 1; }
   [ -d "$SKILLS_SRC" ] || { echo "missing source directory: $SKILLS_SRC" >&2; exit 1; }
@@ -205,12 +227,20 @@ validate_sources() {
   # The destination is checked too so a broken user file fails before publishing.
   node "$MERGE_JSON" check "$CLAUDE_SETTINGS_SRC" "$CLAUDE_SETTINGS_DEST"
 
-  for skill_dir in "$SKILLS_SRC"/*; do
-    [ -e "$skill_dir" ] || continue
-    if [ ! -d "$skill_dir" ] || [ ! -f "$skill_dir/SKILL.md" ]; then
-      echo "invalid skill source: $skill_dir must be a directory containing SKILL.md" >&2
-      exit 1
-    fi
+  discover_skills "$SKILLS_SRC"
+  # Guard empty arrays for macOS Bash 3.2 with nounset enabled.
+  # Published names must also be unique on case-insensitive filesystems.
+  printf '%s\n' ${SKILL_DIRS[@]+"${SKILL_DIRS[@]}"} | awk -F/ '
+    NF {
+      name = tolower($NF)
+      if (name in seen) {
+        printf "duplicate skill name %s: %s and %s\n", $NF, seen[name], $0 > "/dev/stderr"
+        exit 1
+      }
+      seen[name] = $0
+    }
+  '
+  for skill_dir in ${SKILL_DIRS[@]+"${SKILL_DIRS[@]}"}; do
     validate_file_targets "$skill_dir/SKILL.md"
   done
 
@@ -338,8 +368,7 @@ run_clean() {
 }
 
 remove_owned_link() {
-  target="$1"
-  label="$2"
+  local target="$1" label="$2"
   if is_owned_link "$target"; then
     rm "$target"
     echo "removed: $label"
@@ -352,8 +381,8 @@ publish_skills() {
   target_name="$3"
   mkdir -p "$dest"
 
-  for skill_dir in "$SKILLS_SRC"/*; do
-    [ -d "$skill_dir" ] || continue
+  # Flatten the source hierarchy to preserve skill names and destination paths.
+  for skill_dir in ${SKILL_DIRS[@]+"${SKILL_DIRS[@]}"}; do
     name="$(basename "$skill_dir")"
     target="$dest/$name"
 

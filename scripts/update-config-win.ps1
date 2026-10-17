@@ -140,6 +140,26 @@ function Test-SourceTargets {
     return $targets -contains $Target
 }
 
+# Grouping directories may nest freely. Stop at each skill root so bundled
+# references, scripts, and assets are never treated as separate skills.
+function Get-SkillDirectories {
+    param([string] $Directory)
+
+    Get-ChildItem -LiteralPath $Directory -Force | ForEach-Object {
+        if ($_.Name.StartsWith('.')) { return }
+        if (-not $_.PSIsContainer -and $_.Name -ceq 'README.md') { return }
+        if (-not $_.PSIsContainer) {
+            throw "invalid skill source: $($_.FullName) must be a skill or grouping directory"
+        }
+        if (Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') -PathType Leaf) {
+            $_
+        }
+        else {
+            Get-SkillDirectories $_.FullName
+        }
+    }
+}
+
 function Assert-ValidSources {
     if (-not (Test-Path -LiteralPath $RulesSrc -PathType Container)) {
         throw "missing source directory: $RulesSrc"
@@ -168,12 +188,16 @@ function Assert-ValidSources {
         throw 'invalid Claude settings'
     }
 
-    Get-ChildItem -LiteralPath $SkillsSrc -Force | ForEach-Object {
-        $skillFile = Join-Path $_.FullName 'SKILL.md'
-        if (-not $_.PSIsContainer -or -not (Test-Path -LiteralPath $skillFile -PathType Leaf)) {
-            throw "invalid skill source: $($_.FullName) must be a directory containing SKILL.md"
+    $script:SkillDirectories = @(Get-SkillDirectories $SkillsSrc)
+    # PowerShell hashtables compare names case-insensitively, matching Windows
+    # destinations even when validation runs on a case-sensitive filesystem.
+    $seen = @{}
+    foreach ($skill in $SkillDirectories) {
+        if ($seen.ContainsKey($skill.Name)) {
+            throw "duplicate skill name $($skill.Name): $($seen[$skill.Name]) and $($skill.FullName)"
         }
-        Assert-ValidTargets $skillFile
+        $seen[$skill.Name] = $skill.FullName
+        Assert-ValidTargets (Join-Path $skill.FullName 'SKILL.md')
     }
 
     Get-ChildItem -LiteralPath $RulesSrc -Filter '*.md' -File -Recurse | ForEach-Object {
@@ -337,7 +361,8 @@ function Publish-Skills {
 
     New-Item -ItemType Directory -Force $Dest | Out-Null
 
-    Get-ChildItem -LiteralPath $SkillsSrc -Directory | ForEach-Object {
+    # Flatten the source hierarchy to preserve skill names and destination paths.
+    $SkillDirectories | ForEach-Object {
         $skillFile = Join-Path $_.FullName 'SKILL.md'
         $target = Join-Path $Dest $_.Name
 
