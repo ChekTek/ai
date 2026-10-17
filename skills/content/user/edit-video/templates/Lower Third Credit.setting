@@ -1,0 +1,70 @@
+{
+	Tools = ordered() {
+		LowerThirdCredit = MacroOperator {
+			CtrlWZoom = false,
+			Inputs = ordered() {
+				MainInput1 = InstanceInput {
+					SourceOp = "Template",
+					Source = "StyledText",
+					Name = "Credit",
+					Width = 0.5,
+				},
+				Input2 = InstanceInput {
+					SourceOp = "Template",
+					Source = "Size",
+					Name = "Size",
+				},
+				Input3 = InstanceInput {
+					SourceOp = "Template",
+					Source = "Center",
+					Name = "Position",
+				},
+			},
+			Outputs = {
+				MainOutput1 = InstanceOutput {
+					SourceOp = "Template",
+					Source = "Output",
+				}
+			},
+			ViewInfo = GroupInfo { Pos = { 0, 0 } },
+			Tools = ordered() {
+				Template = TextPlus {
+					CtrlWZoom = false,
+					Inputs = {
+						GlobalOut = Input { Value = 119, },
+						Width = Input { Value = 1920, },
+						Height = Input { Value = 1080, },
+						UseFrameFormatSettings = Input { Value = 1, },
+						Center = Input { Value = { 0.06, 0.1 }, },
+						AngleZ = Input { Value = -2.5, },
+						Enabled2 = Input { Value = 1, },
+						Enabled3 = Input { Value = 1, },
+						Red1 = Input { Value = 0.98, },
+						Green1 = Input { Value = 0.78, },
+						Blue1 = Input { Value = 0.12, },
+						StyledText = Input { Value = "@channelname", },
+						Font = Input { Value = "Impact", },
+						Style = Input { Value = "Regular", },
+						Size = Input { Value = 0.065, },
+						HorizontalLeftCenterRight = Input { Value = -1, },
+						VerticalTopCenterBottom = Input { Value = -1, },
+						ElementShape2 = Input { Value = 1, },
+						Thickness2 = Input { Value = 0.14, },
+						JoinStyle2 = Input { Value = 1, },
+						Red2 = Input { Value = 0, },
+						Green2 = Input { Value = 0, },
+						Blue2 = Input { Value = 0, },
+						ElementShape3 = Input { Value = 0, },
+						Softness3 = Input { Value = 0, },
+						Offset3 = Input { Value = { 0.006, -0.006 }, },
+						Red3 = Input { Value = 0, },
+						Green3 = Input { Value = 0, },
+						Blue3 = Input { Value = 0, },
+					},
+					ViewInfo = OperatorInfo { Pos = { 0, 0 } },
+				}
+			},
+		}
+	},
+	ActiveTool = "LowerThirdCredit"
+}
