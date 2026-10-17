@@ -15,8 +15,6 @@ const RAW_SHORTCUTS = [
 
 /** Status keys placed on the split status lines (`modes.ts`, `personas.ts`). */
 const SPLIT_STATUS_KEYS = new Set(["mode", "persona"]);
-/** Extension statuses that should not occupy their own footer line. */
-const HIDDEN_STATUS_KEYS = new Set(["cursor"]);
 
 /** Formats a token count for the compact footer. */
 function formatTokens(count: number): string {
@@ -118,7 +116,7 @@ export default function keyboardShortcutsExtension(pi: ExtensionAPI): void {
 
 					const statuses = footerData.getExtensionStatuses();
 					const extraStatusLines = [...statuses]
-						.filter(([key]) => !SPLIT_STATUS_KEYS.has(key) && !HIDDEN_STATUS_KEYS.has(key))
+						.filter(([key]) => !SPLIT_STATUS_KEYS.has(key))
 						.map(([, status]) => truncateToWidth(status, width, theme.fg("dim", "...")));
 					const separator = theme.fg("borderMuted", "─".repeat(Math.max(0, width)));
 					const hintSeparator = theme.fg("dim", " · ");

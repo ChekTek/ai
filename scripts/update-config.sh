@@ -29,7 +29,6 @@ PI_LEGACY_RULES_DEST="$HOME/.pi/agent/AGENTS.md"
 CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
 CODEX_SKILLS_DEST="$CODEX_ROOT/skills"
 CODEX_RULES_DEST="$CODEX_ROOT/AGENTS.md"
-LEGACY_PI_CURSOR_SDK_PACKAGE="git:github.com/fitchmultz/pi-cursor-sdk"
 
 CLEAN=0
 ASSUME_YES=0
@@ -458,22 +457,6 @@ install_pi_package_dependencies() {
   npm "${npm_args[@]}"
 }
 
-remove_legacy_pi_cursor_sdk_package() {
-  settings="$HOME/.pi/agent/settings.json"
-  if [ ! -f "$settings" ] || ! grep -F "$LEGACY_PI_CURSOR_SDK_PACKAGE" "$settings" >/dev/null; then
-    return 0
-  fi
-
-  if ! command -v pi >/dev/null 2>&1; then
-    echo "skip removing $LEGACY_PI_CURSOR_SDK_PACKAGE: pi is not on PATH" >&2
-    echo "remove that package from $settings before starting Pi so Cursor does not load twice" >&2
-    return 0
-  fi
-
-  pi remove "$LEGACY_PI_CURSOR_SDK_PACKAGE"
-  echo "removed package: $LEGACY_PI_CURSOR_SDK_PACKAGE"
-}
-
 publish_pi_themes() {
   mkdir -p "$PI_THEMES_DEST"
 
@@ -836,7 +819,6 @@ publish_skills "$COPILOT_SKILLS_DEST" "copilot/skills" copilot
 publish_skills "$PI_SKILLS_DEST" "pi/skills" pi
 publish_skills "$CODEX_SKILLS_DEST" "codex/skills" codex
 publish_pi_packages
-remove_legacy_pi_cursor_sdk_package
 publish_pi_themes
 publish_pi_keybindings
 publish_rules "$CLAUDE_RULES_DEST" "claude/rules" claude

@@ -1,4 +1,0 @@
-# Vendored from https://github.com/fitchmultz/pi-cursor-sdk/tree/v0.3.3
-node_modules/
-dist/
-dist.staging*/

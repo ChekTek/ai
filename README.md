@@ -39,5 +39,5 @@ These are the canonical sources; do not edit their published copies. Rules and
 skills target every harness by default. Restrict one with `metadata.targets`
 using any combination of `claude`, `copilot`, `pi`, and `codex`.
 
-Pi includes additional modes, personas, tools, model integrations, and UI
-features. Use `/help`, `/rules`, and `/skills` to discover them.
+Pi includes additional modes, personas, tools, and UI features. Use `/help`,
+`/rules`, and `/skills` to discover them.
