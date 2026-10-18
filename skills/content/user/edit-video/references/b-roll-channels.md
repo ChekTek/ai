@@ -1,5 +1,8 @@
 # B-Roll Sources
 
+[My Channel](https://www.youtube.com/@ChekTek)
+[My Twitch](https://www.twitch.tv/chektek/videos)
+
 ---
 
 ## Platform Holders
