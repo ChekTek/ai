@@ -52,6 +52,18 @@ audio_item.SetProperty("AudioVolume", -28.0)     # on the audio item, not the vi
 tl.GetItemListInTrack("audio", 2)                # items per track
 ```
 
+## Vertical timelines (used by clip-stream)
+
+Landscape items on a 1080x1920 timeline are letterboxed by default. Fill the
+frame instead (center crop):
+
+```python
+item.SetProperty("Scaling", resolve.SCALE_FILL)     # per video item, A-roll and B-roll
+```
+
+Check one still per timeline; if the speaker sits off-center, pan with
+`item.SetProperty("Pan", px)` (timeline pixels, positive moves right).
+
 ## Credits, quotes, blur: a Fusion comp on the B-roll clip
 
 Titles from `InsertFusionTitleIntoTimeline` always last 5 s and cannot be
