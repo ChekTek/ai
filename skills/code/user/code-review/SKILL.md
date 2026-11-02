@@ -33,4 +33,4 @@ Verify each finding against the code; no speculation or unrelated cleanup. Run f
 
 ## Report
 
-State the target. List bugs by severity, then improvements, each with `path:line`, the issue, and a fix. Note checks run. If nothing is actionable, say so.
+Return the entire report as copyable Markdown inside a single fenced `markdown` code block.
