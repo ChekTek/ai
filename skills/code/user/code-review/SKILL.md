@@ -27,6 +27,7 @@ Read applicable repo instructions, the diff, and relevant surrounding code, call
 - **Simplification:** less branching, state, duplication, or abstraction.
 - **Human Readability:** verify variable names make sense, flow, and intent; not style preferences.
 - **Reduction:** code or dependencies that can be safely removed.
+- **Dependencies:** verify necessity, sources, install scripts, known vulnerabilities (including transitives), dev vs runtime placement, and lockfile consistency.
 - **Other:** security, performance, compatibility, tests, and docs.
 
 Verify each finding against the code; no speculation or unrelated cleanup. Run focused checks when practical.
