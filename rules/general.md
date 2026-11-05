@@ -10,7 +10,6 @@ description: "Use when setting project-wide coding standards, AI assistant behav
 
 - Prefer simplicity and human readability over cleverness.
 - Regex only when necessary; comment what it matches and why.
-- Small duplication is fine if it is easier to understand.
 - New dependencies only when necessary: well-maintained, widely used, permissive license.
 - Don't write unit tests unless asked.
 - Code is the source of truth. Update docs/comments that disagree with it.
