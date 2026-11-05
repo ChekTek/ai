@@ -25,7 +25,7 @@ Read applicable repo instructions, the diff, and relevant surrounding code, call
 
 - **Bugs:** realistic failures; give the trigger and impact.
 - **Simplification:** less branching, state, duplication, or abstraction.
-- **Human Readability:** clearer names, flow, and intent; not style preferences.
+- **Human Readability:** verify variable names make sense, flow, and intent; not style preferences.
 - **Reduction:** code or dependencies that can be safely removed.
 - **Other:** security, performance, compatibility, tests, and docs.
 
