@@ -8,17 +8,19 @@ description: "Use when setting project-wide coding standards, AI assistant behav
 
 ## Code
 
-- Follow existing style unless the user asks to refactor or rewrite.
-- Prefer simplicity and readability over cleverness.
+- Prefer simplicity and human readability over cleverness.
 - Regex only when necessary; comment what it matches and why.
-- Small duplication is fine if it is clearer.
 - New dependencies only when necessary: well-maintained, widely used, permissive license.
+- Before adding/upgrading dependencies, check sources, install scripts, and vulnerabilities (including transitives).
+- Put tooling in dev dependencies and runtime requirements in runtime dependencies; keep lockfiles synced.
 - Don't write unit tests unless asked.
 - Code is the source of truth. Update docs/comments that disagree with it.
+- Docs: briefly explain what, never history.
 
 ## Git
 
 - Never add AI attribution (e.g. "Generated with Claude Code") to commits, PRs, issues, or comments.
+- Do not include JIRA references/links in commits, PRs, issues, or comments.
 
 ## GitHub issues
 

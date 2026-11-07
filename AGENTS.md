@@ -19,6 +19,9 @@ files under `~/.claude`, `~/.copilot`, `~/.pi`, or `~/.codex`.
   must contain unique values from `claude`, `copilot`, `pi`, and `codex`.
 - Pi packages, themes, and keybindings are Pi-only. Keep package extension
   entry points compatible with Pi and `pi-acp` without duplicate registration.
+- Claude settings are deep-merged into `~/.claude/settings.json`, never linked
+  or replaced, because Claude Code writes its own keys there. Clean mode leaves
+  that file alone.
 
 ## Workflow
 
