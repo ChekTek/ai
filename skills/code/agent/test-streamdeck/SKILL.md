@@ -1,7 +1,7 @@
 ---
 name: test-streamdeck
 description: "Run a Stream Deck plugin headlessly with the sdtest harness: screenshot keys, check SVG Tiny 1.2 compatibility, drive the property inspector, and verify onWillAppear resources are released in onWillDisappear."
-compatibility: "Requires Node.js and the sdtest CLI from ~/Code/streamdeck-harness."
+compatibility: "Requires Node.js and the sdtest CLI from a local streamdeck-harness checkout (not included in this repository)."
 ---
 
 # Test Stream Deck
@@ -10,6 +10,9 @@ Use `sdtest` to exercise a plugin against a mock Stream Deck backend. It runs de
 headless: no device, no install, and the user's own Stream Deck app is untouched.
 
 ## Setup
+
+`sdtest` comes from a separate, unpublished `streamdeck-harness` project expected at
+`~/Code/streamdeck-harness`. Stop and tell the user if it is missing.
 
 ```bash
 if ! command -v sdtest >/dev/null 2>&1; then
