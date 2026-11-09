@@ -135,7 +135,7 @@ function wrapSelectedIndex(index: number, count: number): number {
 	return ((index % count) + count) % count;
 }
 
-/** Shows the TUI option list. `undefined` means custom UI is unavailable. */
+/** Shows the TUI option list and reports a blocking question to OSC 7501 hosts such as Herdr Desktop. */
 function selectInTui(
 	question: string,
 	context: string | undefined,
@@ -206,7 +206,7 @@ function selectInTui(
 			},
 			dispose: () => signal?.removeEventListener("abort", onAbort),
 		};
-	});
+	}, { blocked: { kind: "question", message: question } });
 }
 
 /** RPC/ACP fallback using host dialogs. Descriptions are inlined into the labels. */
