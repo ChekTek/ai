@@ -7,7 +7,8 @@ disable-model-invocation: true
 
 # Herdr Layout
 
-Stop unless `HERDR_ENV=1`. `herdr workspace|tab|pane` print usage without a subcommand.
+Herdr is a separate, unpublished terminal workspace manager; this skill only works
+inside it. Stop unless `HERDR_ENV=1`. `herdr workspace|tab|pane` print usage without a subcommand.
 
 IDs from JSON: `workspace create` → `result.workspace.workspace_id`; `tab create` → `result.tab.tab_id`, `result.root_pane.pane_id`. `pane run` may print nothing on success; trust its exit status and never resubmit.
 
