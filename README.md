@@ -29,7 +29,8 @@ destinations first; this can delete files not owned by this repository.
 ## Contents
 
 - `rules/` — shared instructions
-- `skills/` — reusable skills
+- `skills/` — reusable coding skills (content-creation skills live in
+  [ChekTek/content](https://github.com/ChekTek/content))
 - `claude/` — Claude Code settings merged into `~/.claude/settings.json`
 - `pi/` — Pi packages, themes, and keybindings
 - `claude/settings.json` — Claude Code settings, merged into
