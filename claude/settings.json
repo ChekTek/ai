@@ -5,5 +5,28 @@
     "commit": "",
     "pr": "",
     "sessionUrl": false
-  }
+  },
+  "permissions": {
+    "deny": [
+      "NotebookEdit",
+      "DesignSync",
+      "CronCreate",
+      "CronDelete",
+      "CronList",
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "PublishPlugin",
+      "PushNotification",
+      "RemoteTrigger",
+      "ReportFindings",
+      "ScheduleWakeup",
+      "ShareOnboardingGuide",
+      "mcp__claude-in-chrome"
+    ]
+  },
+  "disableClaudeAiConnectors": true,
+  "disableWorkflows": true,
+  "disableBundledSkills": true,
+  "disableArtifact": true,
+  "feedbackDrafts": "off"
 }
