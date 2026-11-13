@@ -1,7 +1,8 @@
 # AI Configuration
 
 Shared rules and skills for **Claude Code**, **GitHub Copilot**, **Pi**, and
-**OpenAI Codex**, plus Claude Code settings and Pi packages and preferences.
+**OpenAI Codex**, plus Claude Code settings, Pi packages and preferences, and
+Yazi configuration.
 
 ## Publish
 
@@ -33,6 +34,7 @@ destinations first; this can delete files not owned by this repository.
   by slash command
 - `claude/` — Claude Code settings merged into `~/.claude/settings.json`
 - `pi/` — Pi packages, themes, and keybindings
+- `yazi/` — Yazi file manager configuration, linked into its config directory
 - `claude/settings.json` — Claude Code settings, merged into
   `~/.claude/settings.json` (other keys are kept; removed keys are not unset)
 - `scripts/` — validation and publishing

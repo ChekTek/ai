@@ -1,0 +1,5 @@
+# Open text and code files in fresh.
+[opener]
+edit = [
+	{ run = "fresh %s", desc = "fresh", block = true },
+]
