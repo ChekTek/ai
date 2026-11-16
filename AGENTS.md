@@ -1,8 +1,9 @@
 # Repository Guide
 
 This repository is the source of truth for shared assistant configuration.
-Edit `rules/`, `skills/`, `claude/`, `pi/`, and `scripts/`, not published
-files under `~/.claude`, `~/.copilot`, `~/.pi`, or `~/.codex`.
+Edit `rules/`, `skills/`, `claude/`, `pi/`, `yazi/`, and `scripts/`, not
+published files under `~/.claude`, `~/.copilot`, `~/.pi`, `~/.codex`, or Yazi's
+config directory.
 
 ## Requirements
 
@@ -14,6 +15,8 @@ files under `~/.claude`, `~/.copilot`, `~/.pi`, or `~/.codex`.
 - Clean mode may remove unrelated files from managed directories. Preserve
   Codex's `skills/.system` and remove generated `AGENTS.md` files only when the
   repository ownership marker is present.
+- Yazi's config directory also holds user plugins and flavors. Link `yazi/`
+  files individually; clean mode removes only this repository's links there.
 - Validate sources before publishing anything.
 - Preserve existing frontmatter conventions. `metadata.targets`, when present,
   must contain unique values from `claude`, `copilot`, `pi`, and `codex`.

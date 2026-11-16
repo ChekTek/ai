@@ -1,0 +1,5 @@
+# Run lazygit in the current directory; quitting it returns to yazi.
+[[mgr.prepend_keymap]]
+on   = [ "g", "l" ]
+run  = "shell --block lazygit"
+desc = "Open lazygit"
