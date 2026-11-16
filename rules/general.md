@@ -8,12 +8,11 @@ description: "Use when setting project-wide coding standards, AI assistant behav
 
 ## Code
 
-- Prefer simplicity and human readability over cleverness.
-- Regex only when necessary; comment what it matches and why.
+- Regex only when absolutely necessary; comment what it matches and why.
 - New dependencies only when necessary: well-maintained, widely used, permissive license.
 - Before adding/upgrading dependencies, check sources, install scripts, and vulnerabilities (including transitives).
-- Put tooling in dev dependencies and runtime requirements in runtime dependencies; keep lockfiles synced.
 - Don't write unit tests unless asked.
+- Do not write inline comments unless asked.
 - Code is the source of truth. Update docs/comments that disagree with it.
 - Docs: briefly explain what, never history.
 

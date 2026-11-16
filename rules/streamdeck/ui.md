@@ -8,5 +8,5 @@ paths:
 
 - Use [SDPI Components](https://sdpi-components.dev/docs/components).
 - Talk to the plugin with `const { streamDeckClient } = SDPIComponents;` — do not open a WebSocket.
-- Attach listeners through each component's `focusElement`.
+- Attach listeners through the component's `focusElement`.
 - `sdpi-item` elements need a `title` that describes the setting.

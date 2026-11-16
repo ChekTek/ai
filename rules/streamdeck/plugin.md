@@ -13,7 +13,6 @@ paths:
 
 ## Plugin
 
-- Set `streamDeck.settings.useExperimentalMessageIdentifiers = true;` in `plugin.ts`.
 - After rebuild, check the first 15 lines of `*.sdPlugin/logs` for critical errors.
 
 ## Errors
@@ -24,7 +23,7 @@ paths:
 
 - If there are two 2 visual states: declare them in `manifest.json` and use `setState`, not `setImage`.
 - UUID changes: update `manifest.json` and every source reference.
-- UUID or settings-structure changes: ask if the plugin is in production; migrate legacy settings if so.
+- UUID or settings-structure changes: ask the user if the plugin is in production; migrate legacy settings if so.
 - Logic used by one action: private methods on that action class.
 - SingletonActions have all visible actions available in `this.actions`.
 - Actions should initialize in `onWillAppear` and clean up in `onWillDisappear`.

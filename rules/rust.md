@@ -5,5 +5,3 @@ paths:
 ---
 
 # Rust Instructions
-
-- Do not ignore Rust best practices, but write the code in a way that would make sense to a TypeScript developer
