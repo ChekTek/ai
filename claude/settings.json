@@ -28,5 +28,9 @@
   "disableWorkflows": true,
   "disableBundledSkills": true,
   "disableArtifact": true,
-  "feedbackDrafts": "off"
+  "feedbackDrafts": "off",
+  "statusLine": {
+    "type": "command",
+    "command": "node \"$HOME/.claude/statusline-command.mjs\""
+  }
 }
