@@ -2,6 +2,7 @@
 name: revdiff
 description: "Open a diff for the user in revdiff and collect annotations. Use when asked to show a diff, open a diff viewer, or annotate changes—not for agent-only code reviews."
 compatibility: "Requires revdiff (`brew install umputun/apps/revdiff`); automatic tabs require Herdr's terminal UI or desktop app."
+disable-model-invocation: true
 ---
 
 # Revdiff
