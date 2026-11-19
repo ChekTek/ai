@@ -47,8 +47,8 @@ Pi includes additional modes, personas, tools, and UI features. Use `/help`,
 `/rules`, and `/skills` to discover them.
 
 Some skills depend on local tools that are not part of this repository (the
-`herdr` workspace manager and the `sdtest` Stream Deck harness); they explain
-what they need and stop when it is missing.
+`herdr` workspace manager, the `revdiff` diff viewer, and the `sdtest` Stream
+Deck harness); they explain what they need and stop when it is missing.
 
 ## License
 
