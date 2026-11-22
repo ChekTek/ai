@@ -16,10 +16,11 @@ description: "Use when setting project-wide coding standards, AI assistant behav
 - Code is the source of truth. Update docs/comments that disagree with it.
 - Docs: briefly explain what, never history.
 
-## Git
+## Git - Commits, Pull Requests, Issues, Comments
 
-- Never add AI attribution (e.g. "Generated with Claude Code") to commits, PRs, issues, or comments.
-- Do not include JIRA references/links in commits, PRs, issues, or comments.
+- Use the `tldr` skill
+- Never add AI attribution (e.g. "Generated with Claude Code")
+- Do not include JIRA references/links
 
 ## GitHub issues
 
