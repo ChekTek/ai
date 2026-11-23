@@ -6,8 +6,7 @@ compatibility: "Requires Node.js 24 or later and the sdtest CLI from the @chekte
 
 # Test Stream Deck
 
-`sdtest` runs a plugin with a mock Stream Deck. No device is necessary. The Stream Deck app
-of the user does not change.
+`sdtest` runs a plugin with a mock Stream Deck.
 
 ## Setup
 
@@ -68,6 +67,19 @@ sdtest -s=<session> start <path-to-plugin> --dotenv <path-to-.env> --global-sett
 - Run a check that you will repeat: `sdtest run <scenario.yaml>`. The exit code is not zero
   when a step fails.
 
+## Install
+
+Do this when the test is complete and you tested a copy. It changes the Stream Deck app of
+the user.
+
+```bash
+streamdeck stop <plugin-uuid>
+cp <new-build> <installed-plugin>/bin/
+streamdeck restart <plugin-uuid>
+```
+
+- Read the last lines of `*.sdPlugin/logs`. Tell the user the errors.
+
 ## Limits
 
 Tell the user the limits that apply to the test.
@@ -90,4 +102,5 @@ Tell the user the limits that apply to the test.
 - SVG errors, with file and line.
 - The lifecycle verdict and its numbers.
 - Violations and plugin log errors.
+- The installed plugin: replaced and restarted, or not.
 - The limits that apply.
