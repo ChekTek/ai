@@ -38,6 +38,20 @@ sdtest -s=<session> close
   instance.
 - Add `--json` to parse the output.
 
+## Secrets
+
+Do not put a secret on the command line. Do not print a secret.
+
+```bash
+sdtest -s=<session> start <path-to-plugin> --dotenv <path-to-.env> --global-settings @<secrets.json>
+```
+
+- `--dotenv` gives the variables of a `.env` file to the plugin. `sdtest` hides the values of
+  that file in its output. A value shows as the name of its variable.
+- `--global-settings @<file>` reads secret settings from a JSON file. Give `--dotenv` also when
+  the same secret is in the `.env` file, so that `sdtest` hides it in settings, events and logs.
+- A secret that is not in the `.env` file is not hidden. Mask it before you print output.
+
 ## Check
 
 - Put a key on the device: `add <action-uuid> --settings '<json>'`
