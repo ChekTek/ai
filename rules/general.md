@@ -19,8 +19,9 @@ description: "Use when setting project-wide coding standards, AI assistant behav
 ## Git - Commits, Pull Requests, Issues, Comments
 
 - Use the `tldr` skill
-- Never add AI attribution (e.g. "Generated with Claude Code")
+- Never add AI attribution
 - Do not include JIRA references/links
+- Changesets: write as release notes
 
 ## GitHub issues
 
